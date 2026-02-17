@@ -14,11 +14,15 @@ def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
-    severity_enum = postgresql.ENUM("info", "low", "medium", "high", "critical", name="severity_enum")
-    status_enum = postgresql.ENUM(
-        "open", "closed", "accepted", "false_positive", name="instance_status_enum"
+    severity_enum = postgresql.ENUM(
+        "info", "low", "medium", "high", "critical", name="severity_enum", create_type=False
     )
-    ingest_enum = postgresql.ENUM("queued", "running", "succeeded", "failed", name="ingest_status_enum")
+    status_enum = postgresql.ENUM(
+        "open", "closed", "accepted", "false_positive", name="instance_status_enum", create_type=False
+    )
+    ingest_enum = postgresql.ENUM(
+        "queued", "running", "succeeded", "failed", name="ingest_status_enum", create_type=False
+    )
     severity_enum.create(op.get_bind(), checkfirst=True)
     status_enum.create(op.get_bind(), checkfirst=True)
     ingest_enum.create(op.get_bind(), checkfirst=True)
