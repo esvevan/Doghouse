@@ -51,7 +51,6 @@ async def startup() -> None:
     runner = IngestRunner(SessionLocal, settings.data_dir)
     await runner.start()
     app.state.ingest_runner = runner
-    engine.app = app
 
 
 @app.on_event("shutdown")

@@ -4,7 +4,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
@@ -40,6 +40,7 @@ async def get_projects(session: AsyncSession = Depends(get_session)) -> list[Pro
 @router.post("/projects/{project_id}/imports", response_model=IngestJobOut)
 async def import_scan(
     project_id: uuid.UUID,
+    request: Request,
     file: UploadFile = File(...),
     source_type: str = Form(...),
     store_source_file: bool = Form(False),
@@ -74,7 +75,7 @@ async def import_scan(
     await session.commit()
     await session.refresh(job)
 
-    await session.bind.app.state.ingest_runner.enqueue(job.id)  # type: ignore[attr-defined]
+    await request.app.state.ingest_runner.enqueue(job.id)
     return IngestJobOut.model_validate(job)
 
 
