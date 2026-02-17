@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -62,7 +62,10 @@ class Finding(Base):
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     finding_key: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
-    severity: Mapped[Severity]
+    severity: Mapped[Severity] = mapped_column(
+        Enum(Severity, name="severity_enum", native_enum=True, create_constraint=False),
+        nullable=False,
+    )
     description: Mapped[str | None] = mapped_column(Text)
     remediation: Mapped[str | None] = mapped_column(Text)
     references: Mapped[list[str] | dict] = mapped_column(JSONB, default=list)
@@ -83,7 +86,15 @@ class Instance(Base):
     service_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("services.id", ondelete="SET NULL"), nullable=True
     )
-    status: Mapped[InstanceStatus]
+    status: Mapped[InstanceStatus] = mapped_column(
+        Enum(
+            InstanceStatus,
+            name="instance_status_enum",
+            native_enum=True,
+            create_constraint=False,
+        ),
+        nullable=False,
+    )
     evidence_snippet: Mapped[str | None] = mapped_column(Text)
     search_vector: Mapped[str] = mapped_column(TSVECTOR)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -126,7 +137,10 @@ class IngestJob(Base):
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     source_type: Mapped[str] = mapped_column(Text, nullable=False)
     original_filename: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[IngestStatus]
+    status: Mapped[IngestStatus] = mapped_column(
+        Enum(IngestStatus, name="ingest_status_enum", native_enum=True, create_constraint=False),
+        nullable=False,
+    )
     progress: Mapped[int] = mapped_column(Integer, default=0)
     stats: Mapped[dict] = mapped_column(JSONB, default=dict)
     error: Mapped[str | None] = mapped_column(Text)
