@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<NessusClientData_v2>
+  <Report name="Sample">
+    <ReportHost name="192.168.1.20">
+      <HostProperties>
+        <tag name="host-ip">192.168.1.20</tag>
+        <tag name="host-fqdn">db.local</tag>
+      </HostProperties>
+      <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="3" pluginID="10267" pluginName="SSH Server Type and Version">
+        <description>Service allows banner grab.</description>
+        <solution>Restrict version disclosure.</solution>
+        <plugin_output>OpenSSH_8.9</plugin_output>
+      </ReportItem>
+    </ReportHost>
+  </Report>
+</NessusClientData_v2>
