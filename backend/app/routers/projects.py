@@ -62,7 +62,10 @@ async def import_scan(
     with dest.open("wb") as f_out:
         shutil.copyfileobj(file.file, f_out)
 
-    job.stats["upload_relative_path"] = str(dest.relative_to(settings.data_dir)).replace("\\", "/")
+    job.stats = {
+        **(job.stats or {}),
+        "upload_relative_path": str(dest.relative_to(settings.data_dir)).replace("\\", "/"),
+    }
     if store_source_file:
         artifact = await store_file_as_gzip_artifact(
             session,
