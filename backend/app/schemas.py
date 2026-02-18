@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.enums import IngestStatus, InstanceStatus, Severity
 
@@ -39,6 +39,11 @@ class AssetOut(BaseModel):
     tags: list[str]
     first_seen: datetime
     last_seen: datetime
+
+    @field_validator("ip", mode="before")
+    @classmethod
+    def _coerce_ip_to_str(cls, value: Any) -> str:
+        return str(value)
 
     class Config:
         from_attributes = True
