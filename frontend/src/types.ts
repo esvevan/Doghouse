@@ -9,6 +9,7 @@ export type Project = {
 
 export type Asset = {
   id: string;
+  project_id: string;
   ip: string;
   primary_hostname: string | null;
   hostnames: string[];
