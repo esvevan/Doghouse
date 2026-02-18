@@ -7,7 +7,7 @@ import { VirtualTable } from "../components/VirtualTable";
 type AssetPage = { meta: PageMeta; items: Asset[] };
 
 export function AssetsPage({ projectId }: { projectId: string }) {
-  const { data } = useQuery({
+  const { data, error, isLoading } = useQuery({
     queryKey: ["assets", projectId],
     queryFn: () => apiFetch<AssetPage>(`/api/projects/${projectId}/assets?limit=500&offset=0`),
     enabled: !!projectId
@@ -24,6 +24,9 @@ export function AssetsPage({ projectId }: { projectId: string }) {
   return (
     <section>
       <h2>Assets</h2>
+      {isLoading ? <p>Loading assets...</p> : null}
+      {error ? <p>Failed to load assets: {(error as Error).message}</p> : null}
+      <p>Discovered hosts: {data?.meta.total ?? 0}</p>
       <VirtualTable columns={[{ key: "ip", label: "IP" }, { key: "primary_hostname", label: "Hostname" }, { key: "last_seen", label: "Last Seen" }, { key: "view", label: "Detail" }]} rows={rows} />
       <ul>
         {(data?.items || []).slice(0, 100).map((a) => (

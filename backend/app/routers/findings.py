@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
 from app.deps import get_session
-from app.schemas import FindingDetailOut, FindingOut, InstanceOut, PageMeta
+from app.schemas import FindingOut, PageMeta
 
 router = APIRouter(prefix="/api")
 
@@ -34,12 +34,12 @@ async def list_findings(
     }
 
 
-@router.get("/findings/{finding_id}", response_model=FindingDetailOut)
-async def get_finding(finding_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> FindingDetailOut:
+@router.get("/findings/{finding_id}")
+async def get_finding(finding_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> dict:
     finding, instances = await crud.get_finding_with_instances(session, finding_id)
     if finding is None:
         raise HTTPException(status_code=404, detail="Finding not found")
-    return FindingDetailOut(
-        **FindingOut.model_validate(finding).model_dump(),
-        instances=[InstanceOut.model_validate(i) for i in instances],
-    )
+    return {
+        **FindingOut.model_validate(finding).model_dump(mode="json"),
+        "instances": instances,
+    }

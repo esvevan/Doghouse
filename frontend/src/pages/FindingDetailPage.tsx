@@ -4,13 +4,15 @@ import { apiFetch } from "../api";
 
 export function FindingDetailPage() {
   const { findingId = "" } = useParams();
-  const { data } = useQuery({
+  const { data, error, isLoading } = useQuery({
     queryKey: ["finding-detail", findingId],
     queryFn: () => apiFetch<any>(`/api/findings/${findingId}`),
     enabled: !!findingId
   });
 
-  if (!data) return <p>Loading...</p>;
+  if (isLoading) return <p>Loading...</p>;
+  if (error) return <p>Failed to load finding detail: {(error as Error).message}</p>;
+  if (!data) return <p>No finding data.</p>;
 
   return (
     <section>
@@ -21,7 +23,9 @@ export function FindingDetailPage() {
       <ul>
         {data.instances.map((i: any) => (
           <li key={i.id}>
-            {i.asset_id} / {i.service_id || "host"} / {i.status}
+            <strong>{i.asset_ip}</strong> {i.asset_primary_hostname ? `(${i.asset_primary_hostname})` : ""} /{" "}
+            {i.service_proto ? `${i.service_proto}/${i.service_port}` : "host"} / {i.status}
+            <pre>{i.evidence_snippet || "No plugin output"}</pre>
           </li>
         ))}
       </ul>

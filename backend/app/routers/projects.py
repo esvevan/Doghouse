@@ -120,7 +120,7 @@ async def get_asset_detail(asset_id: uuid.UUID, session: AsyncSession = Depends(
     return {
         "asset": AssetOut.model_validate(payload["asset"]),
         "services": [ServiceOut.model_validate(s) for s in payload["services"]],
-        "instances": [i.id.hex for i in payload["instances"]],
+        "findings": payload["findings"],
     }
 
 

@@ -170,12 +170,35 @@ async def list_findings(
 
 async def get_finding_with_instances(
     session: AsyncSession, finding_id: uuid.UUID
-) -> tuple[Finding | None, list[Instance]]:
+) -> tuple[Finding | None, list[dict[str, Any]]]:
     finding = await session.get(Finding, finding_id)
     if finding is None:
         return None, []
-    result = await session.execute(select(Instance).where(Instance.finding_id == finding_id))
-    return finding, list(result.scalars().all())
+    result = await session.execute(
+        select(Instance, Asset, Service)
+        .join(Asset, Asset.id == Instance.asset_id)
+        .outerjoin(Service, Service.id == Instance.service_id)
+        .where(Instance.finding_id == finding_id)
+        .order_by(Instance.last_seen.desc())
+    )
+    rows: list[dict[str, Any]] = []
+    for inst, asset, service in result.all():
+        rows.append(
+            {
+                "id": str(inst.id),
+                "asset_id": str(inst.asset_id),
+                "asset_ip": asset.ip,
+                "asset_primary_hostname": asset.primary_hostname,
+                "service_id": str(inst.service_id) if inst.service_id else None,
+                "service_proto": service.proto if service else None,
+                "service_port": service.port if service else None,
+                "status": inst.status.value,
+                "evidence_snippet": inst.evidence_snippet,
+                "first_seen": inst.first_seen.isoformat(),
+                "last_seen": inst.last_seen.isoformat(),
+            }
+        )
+    return finding, rows
 
 
 async def patch_instance(session: AsyncSession, instance_id: uuid.UUID, payload: InstancePatch) -> Instance | None:
@@ -226,10 +249,34 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict[s
     services = (
         await session.execute(select(Service).where(Service.asset_id == asset_id).order_by(Service.port.asc()))
     ).scalars().all()
-    instances = (
-        await session.execute(select(Instance).where(Instance.asset_id == asset_id).order_by(Instance.last_seen.desc()))
-    ).scalars().all()
-    return {"asset": asset, "services": list(services), "instances": list(instances)}
+    instance_rows = await session.execute(
+        select(Instance, Finding, Service)
+        .join(Finding, Finding.id == Instance.finding_id)
+        .outerjoin(Service, Service.id == Instance.service_id)
+        .where(Instance.asset_id == asset_id)
+        .order_by(Instance.last_seen.desc())
+    )
+    findings_by_instance: list[dict[str, Any]] = []
+    for inst, finding, service in instance_rows.all():
+        findings_by_instance.append(
+            {
+                "instance_id": str(inst.id),
+                "finding_id": str(finding.id),
+                "finding_key": finding.finding_key,
+                "title": finding.title,
+                "severity": finding.severity.value,
+                "scanner": finding.scanner,
+                "scanner_id": finding.scanner_id,
+                "status": inst.status.value,
+                "service_id": str(inst.service_id) if inst.service_id else None,
+                "service_proto": service.proto if service else None,
+                "service_port": service.port if service else None,
+                "evidence_snippet": inst.evidence_snippet,
+                "first_seen": inst.first_seen.isoformat(),
+                "last_seen": inst.last_seen.isoformat(),
+            }
+        )
+    return {"asset": asset, "services": list(services), "findings": findings_by_instance}
 
 
 async def export_rows(

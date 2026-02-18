@@ -4,13 +4,15 @@ import { apiFetch } from "../api";
 
 export function AssetDetailPage() {
   const { assetId = "" } = useParams();
-  const { data } = useQuery({
+  const { data, error, isLoading } = useQuery({
     queryKey: ["asset-detail", assetId],
     queryFn: () => apiFetch<any>(`/api/assets/${assetId}`),
     enabled: !!assetId
   });
 
-  if (!data) return <p>Loading...</p>;
+  if (isLoading) return <p>Loading...</p>;
+  if (error) return <p>Failed to load asset detail: {(error as Error).message}</p>;
+  if (!data) return <p>No asset data.</p>;
 
   return (
     <section>
@@ -23,10 +25,14 @@ export function AssetDetailPage() {
           </li>
         ))}
       </ul>
-      <h3>Related Instance IDs</h3>
+      <h3>Related Findings</h3>
       <ul>
-        {data.instances.map((id: string) => (
-          <li key={id}>{id}</li>
+        {data.findings.map((row: any) => (
+          <li key={row.instance_id}>
+            <strong>{row.severity.toUpperCase()}</strong> {row.title} [{row.status}]{" "}
+            on {row.service_proto ? `${row.service_proto}/${row.service_port}` : "host"}
+            <pre>{row.evidence_snippet || "No plugin output"}</pre>
+          </li>
         ))}
       </ul>
     </section>
