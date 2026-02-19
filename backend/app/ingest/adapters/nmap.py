@@ -30,10 +30,18 @@ def parse_nmap_xml(path: str) -> Iterator[AssetRecord | ServiceRecord]:
 
         norm_ip = normalize_ip(ip)
         primary = hostnames[0] if hostnames else None
+        os_name = None
+        os_elem = elem.find("os")
+        if os_elem is not None:
+            match = os_elem.find("osmatch")
+            if match is not None:
+                os_name = match.attrib.get("name")
+
         yield AssetRecord(
             ip=norm_ip,
             primary_hostname=primary,
             hostnames=sorted(set(hostnames)),
+            os_name=os_name,
             seen_at=now,
         )
 

@@ -102,8 +102,55 @@ async def list_assets(
         )
     total = await session.scalar(select(func.count()).select_from(query.subquery()))
     query = query.order_by(order_fn(sort_map.get(sort, Asset.last_seen))).limit(limit).offset(offset)
-    result = await session.execute(query)
-    return int(total or 0), list(result.scalars().all())
+    assets = list((await session.execute(query)).scalars().all())
+    if not assets:
+        return int(total or 0), []
+
+    asset_ids = [a.id for a in assets]
+    ports_rows = await session.execute(
+        select(Service.asset_id, Service.port).where(Service.asset_id.in_(asset_ids)).order_by(Service.port.asc())
+    )
+    ports_map: dict[uuid.UUID, list[int]] = {}
+    for asset_id, port in ports_rows.all():
+        ports_map.setdefault(asset_id, [])
+        if port not in ports_map[asset_id]:
+            ports_map[asset_id].append(port)
+
+    vuln_rows = await session.execute(
+        select(Instance.asset_id, Finding.severity, func.count())
+        .join(Finding, Finding.id == Instance.finding_id)
+        .where(Instance.asset_id.in_(asset_ids))
+        .group_by(Instance.asset_id, Finding.severity)
+    )
+    vuln_map: dict[uuid.UUID, dict[str, int]] = {}
+    for asset_id, severity, count in vuln_rows.all():
+        vuln_map.setdefault(
+            asset_id, {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+        )
+        vuln_map[asset_id][severity.value if hasattr(severity, "value") else str(severity)] = int(count)
+
+    rows: list[dict[str, Any]] = []
+    for a in assets:
+        counts = vuln_map.get(a.id, {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0})
+        rows.append(
+            {
+                "id": str(a.id),
+                "project_id": str(a.project_id),
+                "ip": str(a.ip),
+                "primary_hostname": a.primary_hostname,
+                "os_name": a.os_name,
+                "tested": a.tested,
+                "open_ports": a.open_ports_override if a.open_ports_override is not None else ports_map.get(a.id, []),
+                "vuln_counts": {
+                    "critical": counts.get("critical", 0),
+                    "high": counts.get("high", 0),
+                    "medium": counts.get("medium", 0),
+                    "low": counts.get("low", 0),
+                    "info": counts.get("info", 0),
+                },
+            }
+        )
+    return int(total or 0), rows
 
 
 async def list_services(
@@ -222,6 +269,37 @@ async def patch_asset_note(session: AsyncSession, asset_id: uuid.UUID, note: str
     if not asset:
         return None
     asset.note = note
+    await session.commit()
+    await session.refresh(asset)
+    return asset
+
+
+async def patch_asset(
+    session: AsyncSession,
+    asset_id: uuid.UUID,
+    *,
+    note: str | None = None,
+    tested: bool | None = None,
+    ip: str | None = None,
+    primary_hostname: str | None = None,
+    os_name: str | None = None,
+    open_ports_override: list[int] | None = None,
+) -> Asset | None:
+    asset = await session.get(Asset, asset_id)
+    if not asset:
+        return None
+    if note is not None:
+        asset.note = note
+    if tested is not None:
+        asset.tested = tested
+    if ip is not None:
+        asset.ip = normalize_ip(ip)
+    if primary_hostname is not None:
+        asset.primary_hostname = primary_hostname or None
+    if os_name is not None:
+        asset.os_name = os_name or None
+    if open_ports_override is not None:
+        asset.open_ports_override = sorted(set([int(p) for p in open_ports_override]))
     await session.commit()
     await session.refresh(asset)
     return asset

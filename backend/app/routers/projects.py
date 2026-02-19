@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
@@ -94,7 +95,7 @@ async def list_assets(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     total, rows = await crud.list_assets(session, project_id, limit, offset, search, sort, order)
-    return {"meta": PageMeta(total=total, limit=limit, offset=offset), "items": [AssetOut.model_validate(r) for r in rows]}
+    return {"meta": PageMeta(total=total, limit=limit, offset=offset), "items": rows}
 
 
 @router.get("/projects/{project_id}/services")
@@ -131,7 +132,20 @@ async def patch_asset(
     payload: AssetPatch,
     session: AsyncSession = Depends(get_session),
 ) -> AssetOut:
-    row = await crud.patch_asset_note(session, asset_id, payload.note)
+    try:
+        row = await crud.patch_asset(
+            session,
+            asset_id,
+            note=payload.note,
+            tested=payload.tested,
+            ip=payload.ip,
+            primary_hostname=payload.primary_hostname,
+            os_name=payload.os_name,
+            open_ports_override=payload.open_ports_override,
+        )
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Asset update conflicts with existing host data") from exc
     if not row:
         raise HTTPException(status_code=404, detail="Asset not found")
     return AssetOut.model_validate(row)

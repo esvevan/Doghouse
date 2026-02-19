@@ -33,6 +33,7 @@ def parse_nessus_xml(path: str) -> Iterator[AssetRecord | ServiceRecord | Findin
         report_host_name = elem.attrib.get("name", "")
         maybe_ip = None
         hostnames: list[str] = []
+        os_name: str | None = None
 
         host_props = elem.find("HostProperties")
         if host_props is not None:
@@ -46,6 +47,8 @@ def parse_nessus_xml(path: str) -> Iterator[AssetRecord | ServiceRecord | Findin
                         hn = normalize_hostname(val)
                         if hn:
                             hostnames.append(hn)
+                if name == "operating-system" and val:
+                    os_name = val
 
         if not maybe_ip:
             try:
@@ -62,7 +65,13 @@ def parse_nessus_xml(path: str) -> Iterator[AssetRecord | ServiceRecord | Findin
 
         ip = normalize_ip(maybe_ip)
         primary = hostnames[0] if hostnames else None
-        yield AssetRecord(ip=ip, primary_hostname=primary, hostnames=sorted(set(hostnames)), seen_at=now)
+        yield AssetRecord(
+            ip=ip,
+            primary_hostname=primary,
+            hostnames=sorted(set(hostnames)),
+            os_name=os_name,
+            seen_at=now,
+        )
 
         for item in elem.findall("ReportItem"):
             plugin_id = item.attrib.get("pluginID")

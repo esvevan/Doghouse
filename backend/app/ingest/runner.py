@@ -127,6 +127,8 @@ class IngestRunner:
             row.hostnames = sorted(names)
             if rec.primary_hostname and not row.primary_hostname:
                 row.primary_hostname = rec.primary_hostname
+            if rec.os_name and not row.os_name:
+                row.os_name = rec.os_name
             row.last_seen = rec.seen_at
             return row
         row = Asset(
@@ -134,6 +136,7 @@ class IngestRunner:
             ip=rec.ip,
             primary_hostname=rec.primary_hostname,
             hostnames=rec.hostnames,
+            os_name=rec.os_name,
             tags=[],
             first_seen=rec.seen_at,
             last_seen=rec.seen_at,

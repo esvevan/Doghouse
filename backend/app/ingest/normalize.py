@@ -31,6 +31,7 @@ class AssetRecord:
     ip: str
     primary_hostname: str | None
     hostnames: list[str]
+    os_name: str | None
     seen_at: datetime
 
 

@@ -12,10 +12,16 @@ export type Asset = {
   project_id: string;
   ip: string;
   primary_hostname: string | null;
-  hostnames: string[];
-  tags: string[];
-  first_seen: string;
-  last_seen: string;
+  os_name?: string | null;
+  tested?: boolean;
+  open_ports?: number[];
+  vuln_counts?: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+  };
 };
 
 export type Service = {

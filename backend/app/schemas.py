@@ -38,6 +38,9 @@ class AssetOut(BaseModel):
     hostnames: list[str]
     tags: list[str]
     note: str | None = None
+    tested: bool = False
+    os_name: str | None = None
+    open_ports_override: list[int] | None = None
     first_seen: datetime
     last_seen: datetime
 
@@ -148,3 +151,8 @@ class InstancePatch(BaseModel):
 
 class AssetPatch(BaseModel):
     note: str | None = None
+    tested: bool | None = None
+    ip: str | None = None
+    primary_hostname: str | None = None
+    os_name: str | None = None
+    open_ports_override: list[int] | None = None

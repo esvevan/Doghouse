@@ -34,6 +34,9 @@ class Asset(Base):
     hostnames: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     note: Mapped[str | None] = mapped_column(Text)
+    tested: Mapped[bool] = mapped_column(default=False)
+    os_name: Mapped[str | None] = mapped_column(Text)
+    open_ports_override: Mapped[list[int] | None] = mapped_column(ARRAY(Integer), nullable=True)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
