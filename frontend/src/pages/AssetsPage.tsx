@@ -71,7 +71,7 @@ export function AssetsPage({ projectId }: { projectId: string }) {
 
   return (
     <section>
-      <h2>Assets</h2>
+      <h2>Hosts</h2>
       {isLoading ? <p>Loading assets...</p> : null}
       {error ? <p>Failed to load assets: {(error as Error).message}</p> : null}
       <p>Discovered hosts: {data?.meta.total ?? 0}</p>

@@ -68,6 +68,62 @@ th, td {
   cursor: pointer;
 }
 
+.hostHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.pieWrap {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.pie {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+
+.findingsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.severityGroup {
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.severityGroup > summary {
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 1.05rem;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+}
+
+.modalCard {
+  width: min(720px, 92vw);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+}
+
 input, textarea, select, button {
   margin: 4px;
   padding: 6px 8px;

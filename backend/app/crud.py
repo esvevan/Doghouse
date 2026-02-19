@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import asc, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enums import IngestStatus
+from app.enums import IngestStatus, InstanceStatus, Severity
 from app.models import Asset, Finding, IngestJob, Instance, Note, Project, Service
 from app.schemas import InstancePatch
 
@@ -303,6 +303,50 @@ async def patch_asset(
     await session.commit()
     await session.refresh(asset)
     return asset
+
+
+async def create_manual_finding_for_asset(
+    session: AsyncSession,
+    *,
+    asset_id: uuid.UUID,
+    title: str,
+    severity: str,
+    description: str | None,
+    finding_detail: str | None,
+) -> tuple[Finding, Instance]:
+    asset = await session.get(Asset, asset_id)
+    if not asset:
+        raise ValueError("Asset not found")
+
+    finding = Finding(
+        project_id=asset.project_id,
+        finding_key=f"manual:{uuid.uuid4()}",
+        title=title,
+        severity=Severity(severity),
+        description=description,
+        remediation=None,
+        references=[],
+        scanner="manual",
+        scanner_id=None,
+    )
+    session.add(finding)
+    await session.flush()
+
+    instance = Instance(
+        project_id=asset.project_id,
+        finding_id=finding.id,
+        asset_id=asset.id,
+        service_id=None,
+        status=InstanceStatus.open,
+        evidence_snippet=truncate_evidence(finding_detail),
+        first_seen=utcnow(),
+        last_seen=utcnow(),
+    )
+    session.add(instance)
+    await session.commit()
+    await session.refresh(finding)
+    await session.refresh(instance)
+    return finding, instance
 
 
 async def create_note(session: AsyncSession, project_id: uuid.UUID, title: str, body: str) -> Note:

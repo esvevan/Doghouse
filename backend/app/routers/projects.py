@@ -21,6 +21,7 @@ from app.schemas import (
     ProjectCreate,
     ProjectOut,
     ServiceOut,
+    HostFindingCreate,
 )
 from app.services.artifacts import store_file_as_gzip_artifact
 
@@ -149,6 +150,26 @@ async def patch_asset(
     if not row:
         raise HTTPException(status_code=404, detail="Asset not found")
     return AssetOut.model_validate(row)
+
+
+@router.post("/assets/{asset_id}/findings")
+async def add_finding_to_host(
+    asset_id: uuid.UUID,
+    payload: HostFindingCreate,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    try:
+        finding, instance = await crud.create_manual_finding_for_asset(
+            session,
+            asset_id=asset_id,
+            title=payload.title,
+            severity=payload.severity.value,
+            description=payload.description,
+            finding_detail=payload.finding_detail,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"finding_id": str(finding.id), "instance_id": str(instance.id)}
 
 
 @router.post("/projects/{project_id}/notes", response_model=NoteOut)
