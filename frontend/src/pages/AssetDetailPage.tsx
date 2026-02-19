@@ -106,15 +106,6 @@ export function AssetDetailPage() {
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["asset-detail", assetId] })
   });
-  const toggleFlag = useMutation({
-    mutationFn: async (payload: { instanceId: string; flagged_for_testing: boolean }) =>
-      apiFetch(`/api/instances/${payload.instanceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ flagged_for_testing: payload.flagged_for_testing })
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["asset-detail", assetId] })
-  });
 
   const addFinding = useMutation({
     mutationFn: async (payload: {
@@ -205,28 +196,7 @@ export function AssetDetailPage() {
               <li key={row.instance_id}>
                 <details>
                   <summary>
-                    <button
-                      className="flagBtn"
-                      title="Flag for future testing"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const nextFlag = !row.flagged_for_testing;
-                        toggleFlag.mutate({ instanceId: row.instance_id, flagged_for_testing: nextFlag });
-                        if (nextFlag) {
-                          const marker = `Need to test \"${row.title}\"`;
-                          const currentNote = String(data.asset.note || "");
-                          if (!currentNote.includes(marker)) {
-                            const nextNote = currentNote ? `${currentNote}\n${marker}` : marker;
-                            saveHostNote.mutate({ assetId, note: nextNote });
-                          }
-                        }
-                      }}
-                    >
-                      ⚑
-                    </button>
-                    <strong className={row.flagged_for_testing ? "findingFlagged" : ""}>
-                      {SEVERITY_LABEL[row.severity]} {row.title}
-                    </strong>
+                    <strong>{SEVERITY_LABEL[row.severity]} {row.title}</strong>
                   </summary>
                   <p>Service: {row.service_proto ? `${row.service_proto}/${row.service_port}` : "host"}</p>
                   <p>Description: {row.description || "No description provided."}</p>

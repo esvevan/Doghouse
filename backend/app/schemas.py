@@ -97,7 +97,6 @@ class InstanceOut(BaseModel):
     status: InstanceStatus
     evidence_snippet: str | None
     analyst_note: str | None = None
-    flagged_for_testing: bool = False
     first_seen: datetime
     last_seen: datetime
 
@@ -148,7 +147,6 @@ class InstancePatch(BaseModel):
     status: InstanceStatus | None = None
     evidence_snippet: str | None = None
     analyst_note: str | None = None
-    flagged_for_testing: bool | None = None
 
 
 class AssetPatch(BaseModel):
