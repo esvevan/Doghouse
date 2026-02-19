@@ -191,22 +191,6 @@ async def list_service_summary(
     sort: str,
     order: str,
 ) -> tuple[int, list[dict[str, Any]], list[str]]:
-    base = (
-        select(Service, Asset.ip)
-        .join(Asset, Asset.id == Service.asset_id)
-        .where(Service.project_id == project_id)
-    )
-
-    if port:
-        if port.isdigit():
-            base = base.where(Service.port == int(port))
-    if proto:
-        base = base.where(Service.proto.ilike(f"%{proto}%"))
-    if service:
-        base = base.where(func.coalesce(Service.name, "").ilike(f"%{service}%"))
-    if product:
-        base = base.where(func.coalesce(Service.product, "").ilike(f"%{product}%"))
-
     hosts_rows = await session.execute(
         select(func.distinct(Asset.ip))
         .select_from(Service)
@@ -220,30 +204,38 @@ async def list_service_summary(
     )
     hosts = [str(x[0]) for x in hosts_rows.all() if x[0] is not None]
 
-    grouped = (
+    normalized = (
         select(
             Service.port.label("port"),
             Service.proto.label("proto"),
             func.coalesce(Service.name, "").label("service"),
             func.coalesce(Service.product, "").label("product"),
-            func.count(func.distinct(Service.asset_id)).label("host_count"),
+            Service.asset_id.label("asset_id"),
         )
         .where(Service.project_id == project_id)
     )
     if port and port.isdigit():
-        grouped = grouped.where(Service.port == int(port))
+        normalized = normalized.where(Service.port == int(port))
     if proto:
-        grouped = grouped.where(Service.proto.ilike(f"%{proto}%"))
+        normalized = normalized.where(Service.proto.ilike(f"%{proto}%"))
     if service:
-        grouped = grouped.where(func.coalesce(Service.name, "").ilike(f"%{service}%"))
+        normalized = normalized.where(func.coalesce(Service.name, "").ilike(f"%{service}%"))
     if product:
-        grouped = grouped.where(func.coalesce(Service.product, "").ilike(f"%{product}%"))
+        normalized = normalized.where(func.coalesce(Service.product, "").ilike(f"%{product}%"))
 
-    grouped = grouped.group_by(
-        Service.port,
-        Service.proto,
-        func.coalesce(Service.name, ""),
-        func.coalesce(Service.product, ""),
+    normalized_sub = normalized.subquery()
+
+    grouped = select(
+        normalized_sub.c.port,
+        normalized_sub.c.proto,
+        normalized_sub.c.service,
+        normalized_sub.c.product,
+        func.count(func.distinct(normalized_sub.c.asset_id)).label("host_count"),
+    ).group_by(
+        normalized_sub.c.port,
+        normalized_sub.c.proto,
+        normalized_sub.c.service,
+        normalized_sub.c.product,
     )
     grouped_sub = grouped.subquery()
 
