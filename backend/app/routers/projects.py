@@ -115,6 +115,34 @@ async def list_services(
     return {"meta": PageMeta(total=total, limit=limit, offset=offset), "items": [ServiceOut.model_validate(r) for r in rows]}
 
 
+@router.get("/projects/{project_id}/services/summary")
+async def service_summary(
+    project_id: uuid.UUID,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    port: str | None = None,
+    proto: str | None = None,
+    service: str | None = None,
+    product: str | None = None,
+    sort: str = "port",
+    order: str = "asc",
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    total, items, hosts = await crud.list_service_summary(
+        session,
+        project_id,
+        limit,
+        offset,
+        port,
+        proto,
+        service,
+        product,
+        sort,
+        order,
+    )
+    return {"meta": PageMeta(total=total, limit=limit, offset=offset), "items": items, "hosts": hosts}
+
+
 @router.get("/assets/{asset_id}")
 async def get_asset_detail(asset_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> dict:
     payload = await crud.get_asset_detail(session, asset_id)

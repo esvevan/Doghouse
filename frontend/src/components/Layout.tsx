@@ -9,6 +9,7 @@ export function Layout() {
           <Link to="/">Projects</Link>
           <Link to="/dashboard">Dashboard</Link>
           <Link to="/assets">Hosts</Link>
+          <Link to="/services">Services</Link>
           <Link to="/findings">Findings</Link>
           <Link to="/notes">Notes</Link>
           <Link to="/export">Export</Link>

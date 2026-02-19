@@ -140,6 +140,20 @@ th, td {
   gap: 8px;
 }
 
+.servicesLayout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
+  align-items: start;
+}
+
+.hostListPane {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
 input, textarea, select, button {
   margin: 4px;
   padding: 6px 8px;

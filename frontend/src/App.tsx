@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { AssetsPage } from "./pages/AssetsPage";
+import { ServicesPage } from "./pages/ServicesPage";
 import { AssetDetailPage } from "./pages/AssetDetailPage";
 import { FindingsPage } from "./pages/FindingsPage";
 import { FindingDetailPage } from "./pages/FindingDetailPage";
@@ -20,6 +21,7 @@ export default function App() {
           <Route index element={<ProjectsPage onSelect={setProjectId} />} />
           <Route path="dashboard" element={projectId ? <DashboardPage projectId={projectId} /> : <Navigate to="/" />} />
           <Route path="assets" element={projectId ? <AssetsPage projectId={projectId} /> : <Navigate to="/" />} />
+          <Route path="services" element={projectId ? <ServicesPage projectId={projectId} /> : <Navigate to="/" />} />
           <Route path="assets/:assetId" element={<AssetDetailPage />} />
           <Route path="findings" element={projectId ? <FindingsPage projectId={projectId} /> : <Navigate to="/" />} />
           <Route path="findings/:findingId" element={<FindingDetailPage />} />

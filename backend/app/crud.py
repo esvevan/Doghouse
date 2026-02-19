@@ -179,6 +179,103 @@ async def list_services(
     return int(total or 0), list(result.scalars().all())
 
 
+async def list_service_summary(
+    session: AsyncSession,
+    project_id: uuid.UUID,
+    limit: int,
+    offset: int,
+    port: str | None,
+    proto: str | None,
+    service: str | None,
+    product: str | None,
+    sort: str,
+    order: str,
+) -> tuple[int, list[dict[str, Any]], list[str]]:
+    base = (
+        select(Service, Asset.ip)
+        .join(Asset, Asset.id == Service.asset_id)
+        .where(Service.project_id == project_id)
+    )
+
+    if port:
+        if port.isdigit():
+            base = base.where(Service.port == int(port))
+    if proto:
+        base = base.where(Service.proto.ilike(f"%{proto}%"))
+    if service:
+        base = base.where(func.coalesce(Service.name, "").ilike(f"%{service}%"))
+    if product:
+        base = base.where(func.coalesce(Service.product, "").ilike(f"%{product}%"))
+
+    hosts_rows = await session.execute(
+        select(func.distinct(Asset.ip))
+        .select_from(Service)
+        .join(Asset, Asset.id == Service.asset_id)
+        .where(Service.project_id == project_id)
+        .where(Service.port == int(port) if port and port.isdigit() else True)
+        .where(Service.proto.ilike(f"%{proto}%") if proto else True)
+        .where(func.coalesce(Service.name, "").ilike(f"%{service}%") if service else True)
+        .where(func.coalesce(Service.product, "").ilike(f"%{product}%") if product else True)
+        .order_by(Asset.ip.asc())
+    )
+    hosts = [str(x[0]) for x in hosts_rows.all() if x[0] is not None]
+
+    grouped = (
+        select(
+            Service.port.label("port"),
+            Service.proto.label("proto"),
+            func.coalesce(Service.name, "").label("service"),
+            func.coalesce(Service.product, "").label("product"),
+            func.count(func.distinct(Service.asset_id)).label("host_count"),
+        )
+        .where(Service.project_id == project_id)
+    )
+    if port and port.isdigit():
+        grouped = grouped.where(Service.port == int(port))
+    if proto:
+        grouped = grouped.where(Service.proto.ilike(f"%{proto}%"))
+    if service:
+        grouped = grouped.where(func.coalesce(Service.name, "").ilike(f"%{service}%"))
+    if product:
+        grouped = grouped.where(func.coalesce(Service.product, "").ilike(f"%{product}%"))
+
+    grouped = grouped.group_by(
+        Service.port,
+        Service.proto,
+        func.coalesce(Service.name, ""),
+        func.coalesce(Service.product, ""),
+    )
+    grouped_sub = grouped.subquery()
+
+    sort_map = {
+        "port": grouped_sub.c.port,
+        "proto": grouped_sub.c.proto,
+        "service": grouped_sub.c.service,
+        "product": grouped_sub.c.product,
+        "host_count": grouped_sub.c.host_count,
+    }
+    order_fn = asc if order == "asc" else desc
+
+    total = await session.scalar(select(func.count()).select_from(grouped_sub))
+    rows = await session.execute(
+        select(grouped_sub)
+        .order_by(order_fn(sort_map.get(sort, grouped_sub.c.port)))
+        .limit(limit)
+        .offset(offset)
+    )
+    items = [
+        {
+            "port": int(r.port),
+            "proto": str(r.proto),
+            "service": str(r.service) if r.service else "",
+            "product": str(r.product) if r.product else "",
+            "host_count": int(r.host_count),
+        }
+        for r in rows.all()
+    ]
+    return int(total or 0), items, hosts
+
+
 async def list_findings(
     session: AsyncSession,
     project_id: uuid.UUID,
