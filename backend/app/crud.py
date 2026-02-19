@@ -242,6 +242,7 @@ async def get_finding_with_instances(
                 "status": inst.status.value,
                 "evidence_snippet": inst.evidence_snippet,
                 "analyst_note": inst.analyst_note,
+                "flagged_for_testing": inst.flagged_for_testing,
                 "first_seen": inst.first_seen.isoformat(),
                 "last_seen": inst.last_seen.isoformat(),
             }
@@ -259,9 +260,30 @@ async def patch_instance(session: AsyncSession, instance_id: uuid.UUID, payload:
         instance.evidence_snippet = truncate_evidence(payload.evidence_snippet)
     if payload.analyst_note is not None:
         instance.analyst_note = payload.analyst_note
+    if payload.flagged_for_testing is not None:
+        instance.flagged_for_testing = payload.flagged_for_testing
     await session.commit()
     await session.refresh(instance)
     return instance
+
+
+async def delete_instance(session: AsyncSession, instance_id: uuid.UUID) -> bool:
+    instance = await session.get(Instance, instance_id)
+    if not instance:
+        return False
+    finding_id = instance.finding_id
+    await session.delete(instance)
+    await session.flush()
+
+    remaining = await session.scalar(
+        select(func.count()).select_from(Instance).where(Instance.finding_id == finding_id)
+    )
+    if int(remaining or 0) == 0:
+        finding = await session.get(Finding, finding_id)
+        if finding is not None:
+            await session.delete(finding)
+    await session.commit()
+    return True
 
 
 async def patch_asset_note(session: AsyncSession, asset_id: uuid.UUID, note: str | None) -> Asset | None:
@@ -414,6 +436,7 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict[s
                 "service_port": service.port if service else None,
                 "evidence_snippet": inst.evidence_snippet,
                 "analyst_note": inst.analyst_note,
+                "flagged_for_testing": inst.flagged_for_testing,
                 "first_seen": inst.first_seen.isoformat(),
                 "last_seen": inst.last_seen.isoformat(),
             }

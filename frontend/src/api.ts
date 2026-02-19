@@ -23,5 +23,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     const txt = await res.text();
     throw new Error(`${res.status}: ${txt}`);
   }
+  if (res.status === 204) {
+    return undefined as T;
+  }
   return (await res.json()) as T;
 }

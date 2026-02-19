@@ -31,11 +31,10 @@ function SeverityPie({ counts }: { counts: Record<string, number> }) {
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   if (total === 0) return <div className="pieWrap">No findings</div>;
   const values = ["critical", "high", "medium", "low", "info"] as const;
-  const size = 340;
+  const size = 468;
   const cx = size / 2;
   const cy = size / 2;
-  const r = 130;
-  const labelR = 84;
+  const r = 182;
   let running = 0;
   const slices = values.map((k) => {
     const value = counts[k] || 0;
@@ -62,17 +61,6 @@ function SeverityPie({ counts }: { counts: Record<string, number> }) {
           .map((s) => (
             <path key={s.key} d={arcPath(s.start, s.end)} fill={SEVERITY_COLOR[s.key]} stroke="#fff" strokeWidth="1" />
           ))}
-        {slices
-          .filter((s) => s.value > 0)
-          .map((s) => {
-            const mid = (s.start + s.end) / 2;
-            const p = polar(mid, labelR);
-            return (
-              <text key={`${s.key}-label`} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle" fontSize="12" fill="#111">
-                {SEVERITY_LABEL[s.key]} {s.value}
-              </text>
-            );
-          })}
       </svg>
       <small>
         C:{counts.critical || 0} H:{counts.high || 0} M:{counts.medium || 0} L:{counts.low || 0} I:{counts.info || 0}
@@ -111,10 +99,27 @@ export function AssetDetailPage() {
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["asset-detail", assetId] })
   });
+  const deleteFindingInstance = useMutation({
+    mutationFn: async (instanceId: string) =>
+      apiFetch<void>(`/api/instances/${instanceId}`, {
+        method: "DELETE"
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["asset-detail", assetId] })
+  });
+  const toggleFlag = useMutation({
+    mutationFn: async (payload: { instanceId: string; flagged_for_testing: boolean }) =>
+      apiFetch(`/api/instances/${payload.instanceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flagged_for_testing: payload.flagged_for_testing })
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["asset-detail", assetId] })
+  });
 
   const addFinding = useMutation({
     mutationFn: async (payload: {
       title: string;
+      service: string;
       severity: string;
       description: string;
       finding_detail: string;
@@ -200,7 +205,28 @@ export function AssetDetailPage() {
               <li key={row.instance_id}>
                 <details>
                   <summary>
-                    <strong>{SEVERITY_LABEL[row.severity]}</strong> {row.title}
+                    <button
+                      className="flagBtn"
+                      title="Flag for future testing"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const nextFlag = !row.flagged_for_testing;
+                        toggleFlag.mutate({ instanceId: row.instance_id, flagged_for_testing: nextFlag });
+                        if (nextFlag) {
+                          const marker = `Need to test \"${row.title}\"`;
+                          const currentNote = String(data.asset.note || "");
+                          if (!currentNote.includes(marker)) {
+                            const nextNote = currentNote ? `${currentNote}\n${marker}` : marker;
+                            saveHostNote.mutate({ assetId, note: nextNote });
+                          }
+                        }
+                      }}
+                    >
+                      ⚑
+                    </button>
+                    <strong className={row.flagged_for_testing ? "findingFlagged" : ""}>
+                      {SEVERITY_LABEL[row.severity]} {row.title}
+                    </strong>
                   </summary>
                   <p>Service: {row.service_proto ? `${row.service_proto}/${row.service_port}` : "host"}</p>
                   <p>Description: {row.description || "No description provided."}</p>
@@ -222,6 +248,12 @@ export function AssetDetailPage() {
                       style={{ width: "881px", height: "99px" }}
                     />
                     <button type="submit">Save finding note</button>
+                    <button
+                      type="button"
+                      onClick={() => deleteFindingInstance.mutate(row.instance_id)}
+                    >
+                      Delete finding from host
+                    </button>
                   </form>
                 </details>
               </li>

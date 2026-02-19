@@ -101,6 +101,7 @@ class Instance(Base):
     )
     evidence_snippet: Mapped[str | None] = mapped_column(Text)
     analyst_note: Mapped[str | None] = mapped_column(Text)
+    flagged_for_testing: Mapped[bool] = mapped_column(default=False)
     search_vector: Mapped[str] = mapped_column(TSVECTOR)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
