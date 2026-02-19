@@ -163,6 +163,7 @@ async def add_finding_to_host(
             session,
             asset_id=asset_id,
             title=payload.title,
+            service=payload.service,
             severity=payload.severity.value,
             description=payload.description,
             finding_detail=payload.finding_detail,

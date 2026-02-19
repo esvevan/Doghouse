@@ -160,6 +160,7 @@ class AssetPatch(BaseModel):
 
 class HostFindingCreate(BaseModel):
     title: str
+    service: str | None = None
     severity: Severity
     description: str | None = None
     finding_detail: str | None = None

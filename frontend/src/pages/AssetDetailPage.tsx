@@ -30,17 +30,50 @@ const SEVERITY_COLOR: Record<string, string> = {
 function SeverityPie({ counts }: { counts: Record<string, number> }) {
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   if (total === 0) return <div className="pieWrap">No findings</div>;
-  const values = ["critical", "high", "medium", "low", "info"];
+  const values = ["critical", "high", "medium", "low", "info"] as const;
+  const size = 340;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 130;
+  const labelR = 84;
   let running = 0;
-  const segments = values.map((k) => {
-    const start = (running / total) * 360;
-    running += counts[k] || 0;
-    const end = (running / total) * 360;
-    return `${SEVERITY_COLOR[k]} ${start}deg ${end}deg`;
+  const slices = values.map((k) => {
+    const value = counts[k] || 0;
+    const start = running / total;
+    running += value;
+    const end = running / total;
+    return { key: k, value, start, end };
   });
+  const polar = (frac: number, radius: number) => {
+    const angle = frac * Math.PI * 2 - Math.PI / 2;
+    return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+  };
+  const arcPath = (start: number, end: number) => {
+    const s = polar(start, r);
+    const e = polar(end, r);
+    const largeArc = end - start > 0.5 ? 1 : 0;
+    return `M ${cx} ${cy} L ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 1 ${e.x} ${e.y} Z`;
+  };
   return (
     <div className="pieWrap">
-      <div className="pie" style={{ background: `conic-gradient(${segments.join(", ")})` }} />
+      <svg className="pieSvg" viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Finding severity summary">
+        {slices
+          .filter((s) => s.value > 0)
+          .map((s) => (
+            <path key={s.key} d={arcPath(s.start, s.end)} fill={SEVERITY_COLOR[s.key]} stroke="#fff" strokeWidth="1" />
+          ))}
+        {slices
+          .filter((s) => s.value > 0)
+          .map((s) => {
+            const mid = (s.start + s.end) / 2;
+            const p = polar(mid, labelR);
+            return (
+              <text key={`${s.key}-label`} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle" fontSize="12" fill="#111">
+                {SEVERITY_LABEL[s.key]} {s.value}
+              </text>
+            );
+          })}
+      </svg>
       <small>
         C:{counts.critical || 0} H:{counts.high || 0} M:{counts.medium || 0} L:{counts.low || 0} I:{counts.info || 0}
       </small>
@@ -116,31 +149,32 @@ export function AssetDetailPage() {
 
   return (
     <section>
-      <div className="hostHeader">
-        <div>
+      <div className="hostTopGrid">
+        <div className="hostTopLeft">
           <h2>Host Detail: {data.asset.ip}</h2>
           <p><strong>Hostname:</strong> {data.asset.primary_hostname || "Unknown"}</p>
           <p><strong>Operating System:</strong> {data.asset.os_name || "Unknown"}</p>
+          <h3>Host Note</h3>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              saveHostNote.mutate({ assetId, note: String(fd.get("note") || "") });
+            }}
+          >
+            <textarea
+              name="note"
+              placeholder="Add note to this host"
+              defaultValue={data.asset.note || ""}
+              style={{ width: "1258px", height: "207px" }}
+            />
+            <button type="submit">Save note</button>
+          </form>
         </div>
-        <SeverityPie counts={counts} />
+        <div className="hostTopRight">
+          <SeverityPie counts={counts} />
+        </div>
       </div>
-
-      <h3>Host Note</h3>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const fd = new FormData(e.currentTarget);
-          saveHostNote.mutate({ assetId, note: String(fd.get("note") || "") });
-        }}
-      >
-        <textarea
-          name="note"
-          placeholder="Add note to this host"
-          defaultValue={data.asset.note || ""}
-          style={{ width: "1258px", height: "207px" }}
-        />
-        <button type="submit">Save note</button>
-      </form>
 
       <h3>Services</h3>
       <ul>
@@ -168,8 +202,8 @@ export function AssetDetailPage() {
                   <summary>
                     <strong>{SEVERITY_LABEL[row.severity]}</strong> {row.title}
                   </summary>
-                  <p>Status: {row.status}</p>
                   <p>Service: {row.service_proto ? `${row.service_proto}/${row.service_port}` : "host"}</p>
+                  <p>Description: {row.description || "No description provided."}</p>
                   <pre>{row.evidence_snippet || "No plugin output"}</pre>
                   <form
                     onSubmit={(e) => {
@@ -206,13 +240,19 @@ export function AssetDetailPage() {
                 const fd = new FormData(e.currentTarget);
                 addFinding.mutate({
                   title: String(fd.get("title") || ""),
+                  service: String(fd.get("service") || ""),
                   severity: String(fd.get("severity") || "info"),
                   description: String(fd.get("description") || ""),
                   finding_detail: String(fd.get("finding_detail") || "")
                 });
               }}
+              className="modalForm"
             >
-              <input name="title" placeholder="Finding Title" required />
+              <label>Finding Title</label>
+              <input name="title" required />
+              <label>Service</label>
+              <input name="service" />
+              <label>Criticality</label>
               <select name="severity" defaultValue="info">
                 <option value="critical">Critical</option>
                 <option value="high">High</option>
@@ -220,8 +260,10 @@ export function AssetDetailPage() {
                 <option value="low">Low</option>
                 <option value="info">Informational</option>
               </select>
-              <textarea name="description" placeholder="Finding Description" required />
-              <textarea name="finding_detail" placeholder="Finding Detail" required />
+              <label>Description</label>
+              <textarea name="description" required />
+              <label>Finding Detail</label>
+              <textarea name="finding_detail" required />
               <div>
                 <button type="submit">Add Finding</button>
                 <button type="button" onClick={() => setShowModal(false)}>Cancel</button>
@@ -233,4 +275,3 @@ export function AssetDetailPage() {
     </section>
   );
 }
-

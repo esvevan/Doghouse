@@ -68,11 +68,20 @@ th, td {
   cursor: pointer;
 }
 
-.hostHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
+.hostTopGrid {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 20px;
+  align-items: start;
+}
+
+.hostTopLeft {
+  min-width: 0;
+}
+
+.hostTopRight {
+  display: grid;
+  justify-items: end;
 }
 
 .pieWrap {
@@ -81,11 +90,12 @@ th, td {
   justify-items: center;
 }
 
-.pie {
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
+.pieSvg {
+  width: 360px;
+  height: 360px;
   border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
 }
 
 .findingsHeader {
@@ -122,6 +132,11 @@ th, td {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 14px;
+}
+
+.modalForm {
+  display: grid;
+  gap: 8px;
 }
 
 input, textarea, select, button {

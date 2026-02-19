@@ -310,6 +310,7 @@ async def create_manual_finding_for_asset(
     *,
     asset_id: uuid.UUID,
     title: str,
+    service: str | None,
     severity: str,
     description: str | None,
     finding_detail: str | None,
@@ -332,13 +333,17 @@ async def create_manual_finding_for_asset(
     session.add(finding)
     await session.flush()
 
+    combined_detail = finding_detail or ""
+    if service:
+        combined_detail = f"Service: {service}\n\n{combined_detail}".strip()
+
     instance = Instance(
         project_id=asset.project_id,
         finding_id=finding.id,
         asset_id=asset.id,
         service_id=None,
         status=InstanceStatus.open,
-        evidence_snippet=truncate_evidence(finding_detail),
+        evidence_snippet=truncate_evidence(combined_detail),
         first_seen=utcnow(),
         last_seen=utcnow(),
     )
@@ -400,6 +405,7 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict[s
                 "finding_key": finding.finding_key,
                 "title": finding.title,
                 "severity": finding.severity.value,
+                "description": finding.description,
                 "scanner": finding.scanner,
                 "scanner_id": finding.scanner_id,
                 "status": inst.status.value,
