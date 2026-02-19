@@ -37,6 +37,7 @@ class AssetOut(BaseModel):
     primary_hostname: str | None
     hostnames: list[str]
     tags: list[str]
+    note: str | None = None
     first_seen: datetime
     last_seen: datetime
 
@@ -92,6 +93,7 @@ class InstanceOut(BaseModel):
     service_id: uuid.UUID | None
     status: InstanceStatus
     evidence_snippet: str | None
+    analyst_note: str | None = None
     first_seen: datetime
     last_seen: datetime
 
@@ -141,3 +143,8 @@ class IngestJobOut(BaseModel):
 class InstancePatch(BaseModel):
     status: InstanceStatus | None = None
     evidence_snippet: str | None = None
+    analyst_note: str | None = None
+
+
+class AssetPatch(BaseModel):
+    note: str | None = None

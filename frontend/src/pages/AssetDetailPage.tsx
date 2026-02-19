@@ -23,12 +23,21 @@ export function AssetDetailPage() {
     queryFn: () => apiFetch<any>(`/api/assets/${assetId}`),
     enabled: !!assetId
   });
-  const createNote = useMutation({
-    mutationFn: async (payload: { projectId: string; title: string; body: string }) =>
-      apiFetch(`/api/projects/${payload.projectId}/notes`, {
-        method: "POST",
+  const saveAssetNote = useMutation({
+    mutationFn: async (payload: { assetId: string; note: string }) =>
+      apiFetch(`/api/assets/${payload.assetId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: payload.title, body: payload.body })
+        body: JSON.stringify({ note: payload.note })
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["asset-detail", assetId] })
+  });
+  const saveFindingNote = useMutation({
+    mutationFn: async (payload: { instanceId: string; analyst_note: string }) =>
+      apiFetch(`/api/instances/${payload.instanceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ analyst_note: payload.analyst_note })
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["asset-detail", assetId] })
   });
@@ -43,21 +52,18 @@ export function AssetDetailPage() {
   return (
     <section>
       <h2>Asset Detail: {data.asset.ip}</h2>
-      <h3>Add Asset Note</h3>
+      <h3>Asset Note</h3>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
-          createNote.mutate({
-            projectId: data.asset.project_id,
-            title: `Asset ${data.asset.ip}: ${String(fd.get("title"))}`,
-            body: String(fd.get("body"))
+          saveAssetNote.mutate({
+            assetId,
+            note: String(fd.get("note") || "")
           });
-          e.currentTarget.reset();
         }}
       >
-        <input name="title" placeholder="Note title" required />
-        <textarea name="body" placeholder="Asset note" required />
+        <textarea name="note" placeholder="Add note to this asset" defaultValue={data.asset.note || ""} />
         <button type="submit">Save note</button>
       </form>
       <h3>Services</h3>
@@ -83,15 +89,17 @@ export function AssetDetailPage() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   const fd = new FormData(e.currentTarget);
-                  createNote.mutate({
-                    projectId: data.asset.project_id,
-                    title: `Finding note ${data.asset.ip}: ${row.title}`,
-                    body: String(fd.get("body"))
+                  saveFindingNote.mutate({
+                    instanceId: row.instance_id,
+                    analyst_note: String(fd.get("analyst_note") || "")
                   });
-                  e.currentTarget.reset();
                 }}
               >
-                <textarea name="body" placeholder="Add note for this finding instance" required />
+                <textarea
+                  name="analyst_note"
+                  placeholder="Add note for this finding instance"
+                  defaultValue={row.analyst_note || ""}
+                />
                 <button type="submit">Save finding note</button>
               </form>
             </details>

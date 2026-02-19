@@ -33,6 +33,7 @@ class Asset(Base):
     primary_hostname: Mapped[str | None] = mapped_column(Text)
     hostnames: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    note: Mapped[str | None] = mapped_column(Text)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -96,6 +97,7 @@ class Instance(Base):
         nullable=False,
     )
     evidence_snippet: Mapped[str | None] = mapped_column(Text)
+    analyst_note: Mapped[str | None] = mapped_column(Text)
     search_vector: Mapped[str] = mapped_column(TSVECTOR)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -2,10 +2,10 @@ import { Link, Outlet } from "react-router-dom";
 
 export function Layout() {
   return (
-    <div className="app">
-      <header className="topbar">
+    <div className="appShell">
+      <aside className="sidebar">
         <h1>Doghouse</h1>
-        <nav>
+        <nav className="sideNav">
           <Link to="/">Projects</Link>
           <Link to="/dashboard">Dashboard</Link>
           <Link to="/assets">Assets</Link>
@@ -13,8 +13,8 @@ export function Layout() {
           <Link to="/notes">Notes</Link>
           <Link to="/export">Export</Link>
         </nav>
-      </header>
-      <main>
+      </aside>
+      <main className="content">
         <Outlet />
       </main>
     </div>

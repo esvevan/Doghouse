@@ -11,6 +11,7 @@ from app import crud
 from app.config import settings
 from app.deps import get_session
 from app.schemas import (
+    AssetPatch,
     AssetOut,
     IngestJobOut,
     NoteCreate,
@@ -122,6 +123,18 @@ async def get_asset_detail(asset_id: uuid.UUID, session: AsyncSession = Depends(
         "services": [ServiceOut.model_validate(s) for s in payload["services"]],
         "findings": payload["findings"],
     }
+
+
+@router.patch("/assets/{asset_id}", response_model=AssetOut)
+async def patch_asset(
+    asset_id: uuid.UUID,
+    payload: AssetPatch,
+    session: AsyncSession = Depends(get_session),
+) -> AssetOut:
+    row = await crud.patch_asset_note(session, asset_id, payload.note)
+    if not row:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return AssetOut.model_validate(row)
 
 
 @router.post("/projects/{project_id}/notes", response_model=NoteOut)

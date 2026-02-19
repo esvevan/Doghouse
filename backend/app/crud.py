@@ -194,6 +194,7 @@ async def get_finding_with_instances(
                 "service_port": service.port if service else None,
                 "status": inst.status.value,
                 "evidence_snippet": inst.evidence_snippet,
+                "analyst_note": inst.analyst_note,
                 "first_seen": inst.first_seen.isoformat(),
                 "last_seen": inst.last_seen.isoformat(),
             }
@@ -209,9 +210,21 @@ async def patch_instance(session: AsyncSession, instance_id: uuid.UUID, payload:
         instance.status = payload.status
     if payload.evidence_snippet is not None:
         instance.evidence_snippet = truncate_evidence(payload.evidence_snippet)
+    if payload.analyst_note is not None:
+        instance.analyst_note = payload.analyst_note
     await session.commit()
     await session.refresh(instance)
     return instance
+
+
+async def patch_asset_note(session: AsyncSession, asset_id: uuid.UUID, note: str | None) -> Asset | None:
+    asset = await session.get(Asset, asset_id)
+    if not asset:
+        return None
+    asset.note = note
+    await session.commit()
+    await session.refresh(asset)
+    return asset
 
 
 async def create_note(session: AsyncSession, project_id: uuid.UUID, title: str, body: str) -> Note:
@@ -272,6 +285,7 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict[s
                 "service_proto": service.proto if service else None,
                 "service_port": service.port if service else None,
                 "evidence_snippet": inst.evidence_snippet,
+                "analyst_note": inst.analyst_note,
                 "first_seen": inst.first_seen.isoformat(),
                 "last_seen": inst.last_seen.isoformat(),
             }

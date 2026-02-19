@@ -17,22 +17,29 @@ body {
   background: radial-gradient(circle at top right, #e8f7f0 0%, var(--bg) 55%);
 }
 
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
-  padding: 12px 18px;
+.appShell {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  min-height: 100vh;
 }
 
-.topbar nav a {
-  margin-right: 12px;
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  padding: 16px;
+}
+
+.sideNav {
+  display: grid;
+  gap: 10px;
+}
+
+.sideNav a {
   color: var(--accent);
   text-decoration: none;
 }
 
-main {
+.content {
   padding: 18px;
 }
 
@@ -41,6 +48,17 @@ section {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 16px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  padding: 8px;
 }
 
 input, textarea, select, button {
