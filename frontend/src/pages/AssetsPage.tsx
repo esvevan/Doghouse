@@ -6,28 +6,26 @@ import { Asset, PageMeta } from "../types";
 type AssetPage = { meta: PageMeta; items: Asset[] };
 
 function VulnBar({ counts }: { counts: { critical: number; high: number; medium: number; low: number; info: number } }) {
-  const nonInfoTotal = counts.critical + counts.high + counts.medium + counts.low;
-  if (nonInfoTotal === 0 && counts.info > 0) {
-    return <span>Informational Only</span>;
-  }
-  if (nonInfoTotal === 0) {
+  const total = counts.critical + counts.high + counts.medium + counts.low + counts.info;
+  if (total === 0) {
     return <span>None</span>;
   }
   const parts = [
-    { key: "critical", value: counts.critical, color: "#8b0000" },
-    { key: "high", value: counts.high, color: "#d9534f" },
-    { key: "medium", value: counts.medium, color: "#f0ad4e" },
-    { key: "low", value: counts.low, color: "#ffd966" }
+    { key: "critical", value: counts.critical, color: "#d32f2f" },
+    { key: "high", value: counts.high, color: "#f57c00" },
+    { key: "medium", value: counts.medium, color: "#fbc02d" },
+    { key: "low", value: counts.low, color: "#1976d2" },
+    { key: "info", value: counts.info, color: "#388e3c" }
   ];
   return (
     <div>
       <div style={{ display: "flex", width: "220px", height: "12px", border: "1px solid #ccc" }}>
         {parts.map((p) => (
-          <div key={p.key} style={{ width: `${(p.value / nonInfoTotal) * 100}%`, background: p.color }} />
+          <div key={p.key} style={{ width: `${(p.value / total) * 100}%`, background: p.color }} />
         ))}
       </div>
       <small>
-        C:{counts.critical} H:{counts.high} M:{counts.medium} L:{counts.low}
+        C:{counts.critical} H:{counts.high} M:{counts.medium} L:{counts.low} I:{counts.info}
       </small>
     </div>
   );
@@ -97,29 +95,31 @@ export function AssetsPage({ projectId }: { projectId: string }) {
                   checked={!!a.tested}
                   onChange={(e) => patchAsset.mutate({ assetId: a.id, body: { tested: e.target.checked } })}
                 />
-                <button onClick={() => patchAsset.mutate({ assetId: a.id, body: { tested: !a.tested } })}>
-                  Edit
+                <button className="iconBtn" onClick={() => patchAsset.mutate({ assetId: a.id, body: { tested: !a.tested } })} title="Edit tested">
+                  &#9998;
                 </button>
               </td>
               <td>
                 <Link to={`/assets/${a.id}`}>{a.ip}</Link>{" "}
-                <button onClick={() => editTextField(a.id, "ip", a.ip)}>Edit</button>
+                <button className="iconBtn" onClick={() => editTextField(a.id, "ip", a.ip)} title="Edit IP">&#9998;</button>
               </td>
               <td>
                 {a.primary_hostname || ""}{" "}
                 <button
+                  className="iconBtn"
                   onClick={() => editTextField(a.id, "primary_hostname", a.primary_hostname || "")}
+                  title="Edit hostname"
                 >
-                  Edit
+                  &#9998;
                 </button>
               </td>
               <td>
                 {a.os_name || ""}{" "}
-                <button onClick={() => editTextField(a.id, "os_name", a.os_name || "")}>Edit</button>
+                <button className="iconBtn" onClick={() => editTextField(a.id, "os_name", a.os_name || "")} title="Edit operating system">&#9998;</button>
               </td>
               <td>
                 {(a.open_ports || []).join(", ")}{" "}
-                <button onClick={() => editPorts(a.id, a.open_ports || [])}>Edit</button>
+                <button className="iconBtn" onClick={() => editPorts(a.id, a.open_ports || [])} title="Edit open ports">&#9998;</button>
               </td>
               <td>
                 <VulnBar
@@ -133,4 +133,3 @@ export function AssetsPage({ projectId }: { projectId: string }) {
     </section>
   );
 }
-
