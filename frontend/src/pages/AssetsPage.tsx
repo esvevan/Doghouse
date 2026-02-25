@@ -81,6 +81,7 @@ export function AssetsPage({ projectId }: { projectId: string }) {
             <th>Tested</th>
             <th>IP</th>
             <th>Hostname</th>
+            <th>Tags</th>
             <th>Operating System</th>
             <th>Open Ports</th>
             <th>Vulnerabilities</th>
@@ -113,6 +114,7 @@ export function AssetsPage({ projectId }: { projectId: string }) {
                   &#9998;
                 </button>
               </td>
+              <td>{(a.tags || []).join(", ")}</td>
               <td>
                 {a.os_name || ""}{" "}
                 <button className="iconBtn" onClick={() => editTextField(a.id, "os_name", a.os_name || "")} title="Edit operating system">&#9998;</button>

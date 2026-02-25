@@ -156,6 +156,7 @@ class AssetPatch(BaseModel):
     primary_hostname: str | None = None
     os_name: str | None = None
     open_ports_override: list[int] | None = None
+    tags: list[str] | None = None
 
 
 class HostFindingCreate(BaseModel):

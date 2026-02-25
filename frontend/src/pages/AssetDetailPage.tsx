@@ -73,6 +73,7 @@ export function AssetDetailPage() {
   const qc = useQueryClient();
   const { assetId = "" } = useParams();
   const [showModal, setShowModal] = useState(false);
+  const [tagInput, setTagInput] = useState("");
 
   const { data, error, isLoading } = useQuery({
     queryKey: ["asset-detail", assetId],
@@ -88,6 +89,18 @@ export function AssetDetailPage() {
         body: JSON.stringify({ note: payload.note })
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["asset-detail", assetId] })
+  });
+  const saveTags = useMutation({
+    mutationFn: async (payload: { assetId: string; tags: string[] }) =>
+      apiFetch(`/api/assets/${payload.assetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: payload.tags })
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["asset-detail", assetId] });
+      qc.invalidateQueries({ queryKey: ["assets"] });
+    }
   });
 
   const saveFindingNote = useMutation({
@@ -150,6 +163,32 @@ export function AssetDetailPage() {
           <h2>Host Detail: {data.asset.ip}</h2>
           <p><strong>Hostname:</strong> {data.asset.primary_hostname || "Unknown"}</p>
           <p><strong>Operating System:</strong> {data.asset.os_name || "Unknown"}</p>
+          <div>
+            <strong>Tags:</strong>{" "}
+            {(data.asset.tags || []).length > 0 ? (data.asset.tags || []).join(", ") : "None"}
+          </div>
+          <div>
+            <label>Add Tag</label>
+            <div>
+              <input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                placeholder="Enter host tag"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const value = tagInput.trim();
+                  if (!value) return;
+                  const next = Array.from(new Set([...(data.asset.tags || []), value]));
+                  saveTags.mutate({ assetId, tags: next });
+                  setTagInput("");
+                }}
+              >
+                Add Tag
+              </button>
+            </div>
+          </div>
           <h3>Host Note</h3>
           <form
             onSubmit={(e) => {

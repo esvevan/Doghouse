@@ -12,6 +12,7 @@ export type Asset = {
   project_id: string;
   ip: string;
   primary_hostname: string | null;
+  tags?: string[];
   os_name?: string | null;
   tested?: boolean;
   open_ports?: number[];

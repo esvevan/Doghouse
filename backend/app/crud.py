@@ -140,6 +140,7 @@ async def list_assets(
                 "primary_hostname": a.primary_hostname,
                 "os_name": a.os_name,
                 "tested": a.tested,
+                "tags": a.tags or [],
                 "open_ports": a.open_ports_override if a.open_ports_override is not None else ports_map.get(a.id, []),
                 "vuln_counts": {
                     "critical": counts.get("critical", 0),
@@ -392,6 +393,7 @@ async def patch_asset(
     primary_hostname: str | None = None,
     os_name: str | None = None,
     open_ports_override: list[int] | None = None,
+    tags: list[str] | None = None,
 ) -> Asset | None:
     asset = await session.get(Asset, asset_id)
     if not asset:
@@ -408,6 +410,9 @@ async def patch_asset(
         asset.os_name = os_name or None
     if open_ports_override is not None:
         asset.open_ports_override = sorted(set([int(p) for p in open_ports_override]))
+    if tags is not None:
+        cleaned = [t.strip() for t in tags if t and t.strip()]
+        asset.tags = sorted(set(cleaned))
     await session.commit()
     await session.refresh(asset)
     return asset

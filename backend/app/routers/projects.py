@@ -171,6 +171,7 @@ async def patch_asset(
             primary_hostname=payload.primary_hostname,
             os_name=payload.os_name,
             open_ports_override=payload.open_ports_override,
+            tags=payload.tags,
         )
     except IntegrityError as exc:
         await session.rollback()
