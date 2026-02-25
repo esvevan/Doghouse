@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../api";
 import { Asset, PageMeta } from "../types";
@@ -33,6 +34,15 @@ function VulnBar({ counts }: { counts: { critical: number; high: number; medium:
 
 export function AssetsPage({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
+  const [widths, setWidths] = useState<Record<string, number>>({
+    tested: 120,
+    ip: 220,
+    hostname: 220,
+    tags: 220,
+    os: 240,
+    ports: 240,
+    vulns: 280
+  });
   const { data, error, isLoading } = useQuery({
     queryKey: ["assets", projectId],
     queryFn: () => apiFetch<AssetPage>(`/api/projects/${projectId}/assets?limit=500&offset=0`),
@@ -69,6 +79,20 @@ export function AssetsPage({ projectId }: { projectId: string }) {
     patchAsset.mutate({ assetId, body: { open_ports_override: parsed } });
   };
 
+  const startResize = (key: string, startX: number) => {
+    const startWidth = widths[key];
+    const onMove = (event: MouseEvent) => {
+      const delta = event.clientX - startX;
+      setWidths((prev) => ({ ...prev, [key]: Math.max(90, startWidth + delta) }));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
   return (
     <section>
       <h2>Hosts</h2>
@@ -76,15 +100,59 @@ export function AssetsPage({ projectId }: { projectId: string }) {
       {error ? <p>Failed to load assets: {(error as Error).message}</p> : null}
       <p>Discovered hosts: {data?.meta.total ?? 0}</p>
       <table>
+        <colgroup>
+          <col style={{ width: `${widths.tested}px` }} />
+          <col style={{ width: `${widths.ip}px` }} />
+          <col style={{ width: `${widths.hostname}px` }} />
+          <col style={{ width: `${widths.tags}px` }} />
+          <col style={{ width: `${widths.os}px` }} />
+          <col style={{ width: `${widths.ports}px` }} />
+          <col style={{ width: `${widths.vulns}px` }} />
+        </colgroup>
         <thead>
           <tr>
-            <th>Tested</th>
-            <th>IP</th>
-            <th>Hostname</th>
-            <th>Tags</th>
-            <th>Operating System</th>
-            <th>Open Ports</th>
-            <th>Vulnerabilities</th>
+            <th>
+              <div className="resizableTh">
+                <span>Tested</span>
+                <span className="resizeHandle" onMouseDown={(e) => startResize("tested", e.clientX)} />
+              </div>
+            </th>
+            <th>
+              <div className="resizableTh">
+                <span>IP</span>
+                <span className="resizeHandle" onMouseDown={(e) => startResize("ip", e.clientX)} />
+              </div>
+            </th>
+            <th>
+              <div className="resizableTh">
+                <span>Hostname</span>
+                <span className="resizeHandle" onMouseDown={(e) => startResize("hostname", e.clientX)} />
+              </div>
+            </th>
+            <th>
+              <div className="resizableTh">
+                <span>Tags</span>
+                <span className="resizeHandle" onMouseDown={(e) => startResize("tags", e.clientX)} />
+              </div>
+            </th>
+            <th>
+              <div className="resizableTh">
+                <span>Operating System</span>
+                <span className="resizeHandle" onMouseDown={(e) => startResize("os", e.clientX)} />
+              </div>
+            </th>
+            <th>
+              <div className="resizableTh">
+                <span>Open Ports</span>
+                <span className="resizeHandle" onMouseDown={(e) => startResize("ports", e.clientX)} />
+              </div>
+            </th>
+            <th>
+              <div className="resizableTh">
+                <span>Vulnerabilities</span>
+                <span className="resizeHandle" onMouseDown={(e) => startResize("vulns", e.clientX)} />
+              </div>
+            </th>
           </tr>
         </thead>
         <tbody>

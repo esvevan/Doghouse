@@ -165,7 +165,28 @@ export function AssetDetailPage() {
           <p><strong>Operating System:</strong> {data.asset.os_name || "Unknown"}</p>
           <div>
             <strong>Tags:</strong>{" "}
-            {(data.asset.tags || []).length > 0 ? (data.asset.tags || []).join(", ") : "None"}
+            {(data.asset.tags || []).length > 0 ? (
+              <span>
+                {(data.asset.tags || []).map((tag: string) => (
+                  <span key={tag} className="tagChip">
+                    {tag}
+                    <button
+                      type="button"
+                      className="tagRemoveBtn"
+                      title={`Remove tag ${tag}`}
+                      onClick={() => {
+                        const next = (data.asset.tags || []).filter((t: string) => t !== tag);
+                        saveTags.mutate({ assetId, tags: next });
+                      }}
+                    >
+                      x
+                    </button>
+                  </span>
+                ))}
+              </span>
+            ) : (
+              "None"
+            )}
           </div>
           <div>
             <label>Add Tag</label>
