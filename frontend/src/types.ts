@@ -47,6 +47,7 @@ export type Finding = {
   remediation: string | null;
   scanner: string;
   scanner_id: string | null;
+  tested?: boolean;
 };
 
 export type Instance = {

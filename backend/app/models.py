@@ -75,6 +75,7 @@ class Finding(Base):
     references: Mapped[list[str] | dict] = mapped_column(JSONB, default=list)
     scanner: Mapped[str] = mapped_column(Text, nullable=False)
     scanner_id: Mapped[str | None] = mapped_column(Text)
+    tested: Mapped[bool] = mapped_column(default=False)
     search_vector: Mapped[str] = mapped_column(TSVECTOR)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

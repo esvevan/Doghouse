@@ -305,6 +305,39 @@ async def list_findings(
     return int(total or 0), list(result.scalars().all())
 
 
+async def list_findings_grouped(
+    session: AsyncSession,
+    project_id: uuid.UUID,
+    limit: int,
+    offset: int,
+) -> tuple[int, list[dict[str, Any]]]:
+    base = (
+        select(Finding, func.count(func.distinct(Instance.asset_id)).label("affected_hosts"))
+        .join(Instance, Instance.finding_id == Finding.id)
+        .where(Finding.project_id == project_id)
+        .group_by(Finding.id)
+        .order_by(Finding.severity.desc(), Finding.title.asc())
+    )
+    total = await session.scalar(select(func.count()).select_from(base.subquery()))
+    rows = await session.execute(base.limit(limit).offset(offset))
+    items: list[dict[str, Any]] = []
+    for finding, affected_hosts in rows.all():
+        items.append(
+            {
+                "id": str(finding.id),
+                "finding_key": finding.finding_key,
+                "title": finding.title,
+                "severity": finding.severity.value,
+                "description": finding.description,
+                "scanner": finding.scanner,
+                "scanner_id": finding.scanner_id,
+                "tested": finding.tested,
+                "affected_hosts": int(affected_hosts or 0),
+            }
+        )
+    return int(total or 0), items
+
+
 async def get_finding_with_instances(
     session: AsyncSession, finding_id: uuid.UUID
 ) -> tuple[Finding | None, list[dict[str, Any]]]:
@@ -337,6 +370,17 @@ async def get_finding_with_instances(
             }
         )
     return finding, rows
+
+
+async def patch_finding(session: AsyncSession, finding_id: uuid.UUID, *, tested: bool | None = None) -> Finding | None:
+    finding = await session.get(Finding, finding_id)
+    if not finding:
+        return None
+    if tested is not None:
+        finding.tested = tested
+    await session.commit()
+    await session.refresh(finding)
+    return finding
 
 
 async def patch_instance(session: AsyncSession, instance_id: uuid.UUID, payload: InstancePatch) -> Instance | None:

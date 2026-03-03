@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
 from app.deps import get_session
-from app.schemas import FindingOut, PageMeta
+from app.schemas import FindingOut, FindingPatch, PageMeta
 
 router = APIRouter(prefix="/api")
 
@@ -34,6 +34,17 @@ async def list_findings(
     }
 
 
+@router.get("/projects/{project_id}/findings/grouped")
+async def list_findings_grouped(
+    project_id: uuid.UUID,
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    total, rows = await crud.list_findings_grouped(session, project_id, limit, offset)
+    return {"meta": PageMeta(total=total, limit=limit, offset=offset), "items": rows}
+
+
 @router.get("/findings/{finding_id}")
 async def get_finding(finding_id: uuid.UUID, session: AsyncSession = Depends(get_session)) -> dict:
     finding, instances = await crud.get_finding_with_instances(session, finding_id)
@@ -43,3 +54,15 @@ async def get_finding(finding_id: uuid.UUID, session: AsyncSession = Depends(get
         **FindingOut.model_validate(finding).model_dump(mode="json"),
         "instances": instances,
     }
+
+
+@router.patch("/findings/{finding_id}", response_model=FindingOut)
+async def patch_finding(
+    finding_id: uuid.UUID,
+    payload: FindingPatch,
+    session: AsyncSession = Depends(get_session),
+) -> FindingOut:
+    row = await crud.patch_finding(session, finding_id, tested=payload.tested)
+    if not row:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    return FindingOut.model_validate(row)

@@ -81,6 +81,7 @@ class FindingOut(BaseModel):
     references: Any
     scanner: str
     scanner_id: str | None
+    tested: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -165,3 +166,7 @@ class HostFindingCreate(BaseModel):
     severity: Severity
     description: str | None = None
     finding_detail: str | None = None
+
+
+class FindingPatch(BaseModel):
+    tested: bool | None = None
