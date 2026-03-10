@@ -7,6 +7,7 @@ import { AssetsPage } from "./pages/AssetsPage";
 import { ServicesPage } from "./pages/ServicesPage";
 import { AssetDetailPage } from "./pages/AssetDetailPage";
 import { FindingsPage } from "./pages/FindingsPage";
+import { LootPage } from "./pages/LootPage";
 import { FindingDetailPage } from "./pages/FindingDetailPage";
 import { NotesPage } from "./pages/NotesPage";
 import { ExportPage } from "./pages/ExportPage";
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="services" element={projectId ? <ServicesPage projectId={projectId} /> : <Navigate to="/" />} />
           <Route path="assets/:assetId" element={<AssetDetailPage />} />
           <Route path="findings" element={projectId ? <FindingsPage projectId={projectId} /> : <Navigate to="/" />} />
+          <Route path="loot" element={projectId ? <LootPage projectId={projectId} /> : <Navigate to="/" />} />
           <Route path="findings/:findingId" element={<FindingDetailPage />} />
           <Route path="notes" element={projectId ? <NotesPage projectId={projectId} /> : <Navigate to="/" />} />
           <Route path="export" element={projectId ? <ExportPage projectId={projectId} /> : <Navigate to="/" />} />

@@ -11,7 +11,7 @@ from sqlalchemy import asc, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import IngestStatus, InstanceStatus, Severity
-from app.models import Asset, Finding, IngestJob, Instance, Note, Project, Service
+from app.models import Asset, Finding, IngestJob, Instance, LootCredential, Note, Project, Service
 from app.schemas import InstancePatch
 
 
@@ -77,6 +77,99 @@ async def list_jobs(session: AsyncSession, project_id: uuid.UUID, limit: int, of
         .offset(offset)
     )
     return int(total or 0), list(result.scalars().all())
+
+
+async def create_loot_credential(
+    session: AsyncSession,
+    project_id: uuid.UUID,
+    *,
+    username: str | None,
+    password: str | None,
+    format: str | None,
+    hash_value: str | None,
+    host: str | None,
+    service: str | None,
+) -> LootCredential:
+    row = LootCredential(
+        project_id=project_id,
+        username=username or None,
+        password=password or None,
+        format=format or None,
+        hash=hash_value or None,
+        host=host or None,
+        service=service or None,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return row
+
+
+async def list_loot_credentials(
+    session: AsyncSession,
+    project_id: uuid.UUID,
+    limit: int,
+    offset: int,
+    q: str | None,
+) -> tuple[int, list[LootCredential]]:
+    query = select(LootCredential).where(LootCredential.project_id == project_id)
+    if q:
+        pattern = f"%{q}%"
+        query = query.where(
+            func.concat(
+                func.coalesce(LootCredential.username, ""),
+                " ",
+                func.coalesce(LootCredential.password, ""),
+                " ",
+                func.coalesce(LootCredential.format, ""),
+                " ",
+                func.coalesce(LootCredential.hash, ""),
+                " ",
+                func.coalesce(LootCredential.host, ""),
+                " ",
+                func.coalesce(LootCredential.service, ""),
+            ).ilike(pattern)
+        )
+    total = await session.scalar(select(func.count()).select_from(query.subquery()))
+    rows = await session.execute(
+        query.order_by(LootCredential.updated_at.desc()).limit(limit).offset(offset)
+    )
+    return int(total or 0), list(rows.scalars().all())
+
+
+async def update_loot_credential(
+    session: AsyncSession,
+    credential_id: uuid.UUID,
+    *,
+    username: str | None,
+    password: str | None,
+    format: str | None,
+    hash_value: str | None,
+    host: str | None,
+    service: str | None,
+) -> LootCredential | None:
+    row = await session.get(LootCredential, credential_id)
+    if not row:
+        return None
+    row.username = username or None
+    row.password = password or None
+    row.format = format or None
+    row.hash = hash_value or None
+    row.host = host or None
+    row.service = service or None
+    row.updated_at = utcnow()
+    await session.commit()
+    await session.refresh(row)
+    return row
+
+
+async def delete_loot_credential(session: AsyncSession, credential_id: uuid.UUID) -> bool:
+    row = await session.get(LootCredential, credential_id)
+    if not row:
+        return False
+    await session.delete(row)
+    await session.commit()
+    return True
 
 
 async def list_assets(

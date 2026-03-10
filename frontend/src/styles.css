@@ -241,6 +241,11 @@ th, td {
   font-weight: 700;
 }
 
+.actionsCell {
+  display: flex;
+  gap: 8px;
+}
+
 input, textarea, select, button {
   margin: 4px;
   padding: 6px 8px;

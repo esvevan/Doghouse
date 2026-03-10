@@ -170,3 +170,37 @@ class HostFindingCreate(BaseModel):
 
 class FindingPatch(BaseModel):
     tested: bool | None = None
+
+
+class LootCredentialCreate(BaseModel):
+    username: str | None = None
+    password: str | None = None
+    format: str | None = None
+    hash: str | None = None
+    host: str | None = None
+    service: str | None = None
+
+
+class LootCredentialUpdate(BaseModel):
+    username: str | None = None
+    password: str | None = None
+    format: str | None = None
+    hash: str | None = None
+    host: str | None = None
+    service: str | None = None
+
+
+class LootCredentialOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    username: str | None
+    password: str | None
+    format: str | None
+    hash: str | None
+    host: str | None
+    service: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

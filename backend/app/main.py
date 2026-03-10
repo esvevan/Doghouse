@@ -11,7 +11,7 @@ from app.config import settings
 from app.db import SessionLocal, engine
 from app.ingest.runner import IngestRunner
 from app.logging import configure_logging
-from app.routers import exports, findings, instances, jobs, projects
+from app.routers import exports, findings, instances, jobs, loot, projects
 from app.security import assert_bootstrap_allowed, ensure_local_bind, load_or_create_token, require_api_token
 
 configure_logging(settings.log_level)
@@ -76,6 +76,7 @@ app.include_router(jobs.router)
 app.include_router(findings.router)
 app.include_router(instances.router)
 app.include_router(exports.router)
+app.include_router(loot.router)
 
 frontend_dist = settings.frontend_dist_dir.resolve()
 if frontend_dist.exists():

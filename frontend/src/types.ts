@@ -80,3 +80,16 @@ export type Note = {
   created_at: string;
   updated_at: string;
 };
+
+export type LootCredential = {
+  id: string;
+  project_id: string;
+  username: string | null;
+  password: string | null;
+  format: string | null;
+  hash: string | null;
+  host: string | null;
+  service: string | null;
+  created_at: string;
+  updated_at: string;
+};
