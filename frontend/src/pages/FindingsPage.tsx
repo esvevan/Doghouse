@@ -55,19 +55,37 @@ function FindingDetailRow({
       qc.invalidateQueries({ queryKey: ["finding-detail", findingId] });
     }
   });
-  const saveInstanceNote = useMutation({
-    mutationFn: async (payload: { instanceId: string; analyst_note: string }) =>
-      apiFetch(`/api/instances/${payload.instanceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ analyst_note: payload.analyst_note })
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["finding-detail", findingId] })
-  });
 
   if (isLoading) return <p>Loading finding detail...</p>;
   if (error) return <p>Failed to load detail: {(error as Error).message}</p>;
   if (!data) return <p>No detail.</p>;
+
+  const uniqueServices = Array.from(
+    new Set(
+      (data.instances || []).map((i: any) =>
+        i.service_proto ? `${i.service_proto}/${i.service_port}` : "host"
+      )
+    )
+  );
+  const uniqueHosts = Array.from(
+    new Map(
+      (data.instances || []).map((i: any) => [
+        i.asset_id,
+        {
+          asset_id: i.asset_id,
+          asset_ip: i.asset_ip,
+          asset_primary_hostname: i.asset_primary_hostname
+        }
+      ])
+    ).values()
+  );
+  const pluginOutputs = (data.instances || [])
+    .filter((i: any) => i.evidence_snippet)
+    .map((i: any) => ({
+      asset_id: i.asset_id,
+      asset_ip: i.asset_ip,
+      evidence_snippet: i.evidence_snippet
+    }));
 
   return (
     <div className="findingExpanded">
@@ -84,40 +102,39 @@ function FindingDetailRow({
         </button>
         <span className={tested ? "testedFinding" : ""}>{tested ? "Tested" : "Untested"}</span>
       </div>
-      {data.instances.map((i: any) => (
-        <div key={i.id} className="findingInstanceCard">
-          <p>
-            <strong>Service:</strong> {i.service_proto ? `${i.service_proto}/${i.service_port}` : "host"}
-          </p>
-          <p>
-            <strong>Description:</strong> {data.description || "No description provided."}
-          </p>
-          <p>
-            <strong>Vulnerable Hosts:</strong>{" "}
-            <Link to={`/assets/${i.asset_id}`}>{i.asset_ip}</Link>
-            {i.asset_primary_hostname ? ` (${i.asset_primary_hostname})` : ""}
-          </p>
-          <pre>{i.evidence_snippet || "No plugin output"}</pre>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              saveInstanceNote.mutate({
-                instanceId: i.id,
-                analyst_note: String(fd.get("analyst_note") || "")
-              });
-            }}
-          >
-            <textarea
-              name="analyst_note"
-              defaultValue={i.analyst_note || ""}
-              placeholder="Finding instance note"
-              style={{ width: "881px", height: "99px" }}
-            />
-            <button type="submit">Save finding note</button>
-          </form>
+      <div className="findingInstanceCard">
+        <p>
+          <strong>Service:</strong> {uniqueServices.join(", ")}
+        </p>
+        <p>
+          <strong>Description:</strong> {data.description || "No description provided."}
+        </p>
+        <p>
+          <strong>Vulnerable Hosts:</strong>{" "}
+          {uniqueHosts.map((host: any, index: number) => (
+            <span key={host.asset_id}>
+              <Link to={`/assets/${host.asset_id}`}>{host.asset_ip}</Link>
+              {host.asset_primary_hostname ? ` (${host.asset_primary_hostname})` : ""}
+              {index < uniqueHosts.length - 1 ? ", " : ""}
+            </span>
+          ))}
+        </p>
+        <div>
+          <strong>Plugin Output:</strong>
+          {pluginOutputs.length > 0 ? (
+            pluginOutputs.map((output: any) => (
+              <div key={`${output.asset_id}-${output.asset_ip}`}>
+                <p>
+                  <strong>{output.asset_ip}</strong>
+                </p>
+                <pre>{output.evidence_snippet}</pre>
+              </div>
+            ))
+          ) : (
+            <pre>No plugin output</pre>
+          )}
         </div>
-      ))}
+      </div>
     </div>
   );
 }
@@ -158,12 +175,12 @@ export function FindingsPage({ projectId }: { projectId: string }) {
       {isLoading ? <p>Loading findings...</p> : null}
       {error ? <p>Failed to load findings: {(error as Error).message}</p> : null}
       <div className="findingsBoardHeader">
-        <span>Finding</span>
+        <span />
         <span>Affected Hosts</span>
         <span>Source</span>
       </div>
       {SEVERITY_ORDER.map((sev) => (
-        <details key={sev} className="severityGroup" open>
+        <details key={sev} className="severityGroup">
           <summary>
             {SEVERITY_LABEL[sev]} ({grouped[sev].length})
           </summary>

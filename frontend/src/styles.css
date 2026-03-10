@@ -157,11 +157,12 @@ th, td {
 
 .findingsBoardHeader {
   display: grid;
-  grid-template-columns: 1fr 140px 140px;
+  grid-template-columns: minmax(0, 1fr) 160px 160px;
   gap: 12px;
   font-weight: 700;
   padding: 8px 12px;
   border-bottom: 1px solid var(--line);
+  align-items: center;
 }
 
 .findingRow {
@@ -171,7 +172,7 @@ th, td {
 
 .findingSummary {
   display: grid;
-  grid-template-columns: 1fr 140px 140px;
+  grid-template-columns: minmax(0, 1fr) 160px 160px;
   gap: 12px;
   align-items: center;
   cursor: pointer;
