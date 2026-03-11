@@ -93,3 +93,34 @@ export type LootCredential = {
   created_at: string;
   updated_at: string;
 };
+
+export type ToolOutput = {
+  id: string;
+  project_id: string;
+  asset_id: string | null;
+  artifact_id: string | null;
+  tool_name: string;
+  original_filename: string;
+  content_type: string | null;
+  target_ip: string | null;
+  discovered_ips: string[];
+  preview_text: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ToolOutputCandidateAsset = {
+  id: string;
+  ip: string;
+  primary_hostname: string | null;
+};
+
+export type ToolOutputPreflightItem = {
+  tool_output: ToolOutput;
+  attached_asset: ToolOutputCandidateAsset | null;
+  candidate_assets: ToolOutputCandidateAsset[];
+  requires_resolution: boolean;
+  allowed_actions: string[];
+  message: string | null;
+};

@@ -11,8 +11,8 @@ from sqlalchemy import asc, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import IngestStatus, InstanceStatus, Severity
-from app.models import Asset, Finding, IngestJob, Instance, LootCredential, Note, Project, Service
-from app.schemas import InstancePatch
+from app.models import Asset, Finding, IngestJob, Instance, LootCredential, Note, Project, Service, ToolOutput
+from app.schemas import InstancePatch, ToolOutputResolutionChoice
 
 
 def utcnow() -> datetime:
@@ -77,6 +77,39 @@ async def list_jobs(session: AsyncSession, project_id: uuid.UUID, limit: int, of
         .offset(offset)
     )
     return int(total or 0), list(result.scalars().all())
+
+
+async def list_candidate_assets(session: AsyncSession, project_id: uuid.UUID) -> list[Asset]:
+    rows = await session.execute(
+        select(Asset).where(Asset.project_id == project_id).order_by(Asset.ip.asc())
+    )
+    return list(rows.scalars().all())
+
+
+async def get_asset_by_ip(session: AsyncSession, project_id: uuid.UUID, ip: str) -> Asset | None:
+    return await session.scalar(select(Asset).where(Asset.project_id == project_id, Asset.ip == ip))
+
+
+async def create_asset_for_ip(
+    session: AsyncSession,
+    *,
+    project_id: uuid.UUID,
+    ip: str,
+    primary_hostname: str | None = None,
+) -> Asset:
+    now = utcnow()
+    row = Asset(
+        project_id=project_id,
+        ip=normalize_ip(ip),
+        primary_hostname=primary_hostname,
+        hostnames=[primary_hostname] if primary_hostname else [],
+        tags=[],
+        first_seen=now,
+        last_seen=now,
+    )
+    session.add(row)
+    await session.flush()
+    return row
 
 
 async def create_loot_credential(
@@ -632,6 +665,97 @@ async def list_notes(
     return int(total or 0), list(result.scalars().all())
 
 
+async def create_tool_output(
+    session: AsyncSession,
+    *,
+    project_id: uuid.UUID,
+    asset_id: uuid.UUID | None,
+    artifact_id: uuid.UUID | None,
+    tool_name: str,
+    original_filename: str,
+    content_type: str | None,
+    target_ip: str | None,
+    discovered_ips: list[str],
+    preview_text: str,
+    status: str,
+) -> ToolOutput:
+    row = ToolOutput(
+        project_id=project_id,
+        asset_id=asset_id,
+        artifact_id=artifact_id,
+        tool_name=tool_name,
+        original_filename=original_filename,
+        content_type=content_type,
+        target_ip=target_ip,
+        discovered_ips=discovered_ips,
+        preview_text=preview_text,
+        status=status,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return row
+
+
+async def resolve_tool_outputs(
+    session: AsyncSession,
+    *,
+    project_id: uuid.UUID,
+    choices: list[ToolOutputResolutionChoice],
+) -> list[ToolOutput]:
+    resolved: list[ToolOutput] = []
+    for choice in choices:
+        row = await session.get(ToolOutput, choice.tool_output_id)
+        if row is None or row.project_id != project_id:
+            continue
+        if row.status != "pending":
+            resolved.append(row)
+            continue
+
+        if choice.action == "cancel":
+            row.status = "cancelled"
+            row.updated_at = utcnow()
+            continue
+
+        if choice.action == "map_existing":
+            if choice.asset_id is None:
+                raise ValueError("asset_id is required for map_existing")
+            asset = await session.get(Asset, choice.asset_id)
+            if asset is None or asset.project_id != project_id:
+                raise ValueError("Selected host does not exist in this project")
+            row.asset_id = asset.id
+            row.status = "ready"
+            row.updated_at = utcnow()
+            resolved.append(row)
+            continue
+
+        if choice.action == "confirm_new":
+            if not row.target_ip:
+                raise ValueError("Cannot confirm a new host without a detected target IP")
+            asset = await get_asset_by_ip(session, project_id, str(row.target_ip))
+            if asset is None:
+                asset = await create_asset_for_ip(session, project_id=project_id, ip=str(row.target_ip))
+            row.asset_id = asset.id
+            row.status = "ready"
+            row.updated_at = utcnow()
+            resolved.append(row)
+            continue
+
+        raise ValueError(f"Unsupported resolution action: {choice.action}")
+
+    await session.commit()
+    return resolved
+
+
+async def list_tool_outputs_for_asset(session: AsyncSession, asset_id: uuid.UUID) -> list[ToolOutput]:
+    rows = await session.execute(
+        select(ToolOutput)
+        .where(ToolOutput.asset_id == asset_id, ToolOutput.status == "ready")
+        .order_by(ToolOutput.created_at.desc())
+    )
+    return list(rows.scalars().all())
+
+
 async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict[str, Any] | None:
     asset = await session.get(Asset, asset_id)
     if not asset:
@@ -668,7 +792,13 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict[s
                 "last_seen": inst.last_seen.isoformat(),
             }
         )
-    return {"asset": asset, "services": list(services), "findings": findings_by_instance}
+    tool_outputs = await list_tool_outputs_for_asset(session, asset_id)
+    return {
+        "asset": asset,
+        "services": list(services),
+        "findings": findings_by_instance,
+        "tool_outputs": tool_outputs,
+    }
 
 
 async def export_rows(

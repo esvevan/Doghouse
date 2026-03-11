@@ -86,6 +86,13 @@ th, td {
   align-items: center;
 }
 
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
 .pieWrap {
   display: grid;
   gap: 8px;
@@ -104,6 +111,17 @@ th, td {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.toolOutputSection {
+  margin-top: 20px;
+}
+
+.toolOutputCard {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
 }
 
 .severityGroup {
@@ -139,6 +157,27 @@ th, td {
 .modalForm {
   display: grid;
   gap: 8px;
+}
+
+.resolutionCard {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fff;
+}
+
+.resolutionOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 .servicesLayout {
@@ -244,6 +283,10 @@ th, td {
 .actionsCell {
   display: flex;
   gap: 8px;
+}
+
+.muted {
+  color: #5d6b6f;
 }
 
 input, textarea, select, button {

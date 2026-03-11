@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import crud
 from app.config import settings
 from app.deps import get_session
+from app.models import Asset
 from app.schemas import (
     AssetPatch,
     AssetOut,
@@ -22,8 +23,12 @@ from app.schemas import (
     ProjectOut,
     ServiceOut,
     HostFindingCreate,
+    ToolOutputOut,
+    ToolOutputPreflightItem,
+    ToolOutputResolutionChoice,
 )
 from app.services.artifacts import store_file_as_gzip_artifact
+from app.services.tool_outputs import analyze_tool_output
 
 router = APIRouter(prefix="/api")
 
@@ -152,6 +157,7 @@ async def get_asset_detail(asset_id: uuid.UUID, session: AsyncSession = Depends(
         "asset": AssetOut.model_validate(payload["asset"]),
         "services": [ServiceOut.model_validate(s) for s in payload["services"]],
         "findings": payload["findings"],
+        "tool_outputs": [ToolOutputOut.model_validate(t) for t in payload["tool_outputs"]],
     }
 
 
@@ -200,6 +206,166 @@ async def add_finding_to_host(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"finding_id": str(finding.id), "instance_id": str(instance.id)}
+
+
+@router.post("/projects/{project_id}/tool-outputs/preflight")
+async def preflight_tool_outputs(
+    project_id: uuid.UUID,
+    files: list[UploadFile] = File(...),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one file is required")
+
+    allowed_suffixes = {".txt", ".json", ".xml"}
+    candidate_assets = await crud.list_candidate_assets(session, project_id)
+    candidate_payload = [
+        {"id": asset.id, "ip": str(asset.ip), "primary_hostname": asset.primary_hostname}
+        for asset in candidate_assets
+    ]
+    has_candidate_assets = len(candidate_payload) > 0
+    items: list[ToolOutputPreflightItem] = []
+
+    for file in files:
+        suffix = Path(file.filename or "").suffix.lower()
+        if suffix not in allowed_suffixes:
+            raise HTTPException(status_code=400, detail="Only txt, json, and xml files are supported")
+
+        upload_dir = settings.data_dir / "uploads" / "tool-outputs" / str(uuid.uuid4())
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        dest = upload_dir / Path(file.filename).name
+        with dest.open("wb") as f_out:
+            shutil.copyfileobj(file.file, f_out)
+
+        artifact = await store_file_as_gzip_artifact(
+            session,
+            project_id=project_id,
+            data_dir=settings.data_dir,
+            source_file=dest,
+            original_name=file.filename,
+        )
+        analysis = analyze_tool_output(file.filename, dest)
+        attached_asset = None
+        status = "pending"
+        requires_resolution = True
+        allowed_actions = ["map_existing", "cancel"]
+        message = "Select the in-scope host for this tool output."
+
+        if analysis.target_ip:
+            matched_asset = await crud.get_asset_by_ip(session, project_id, analysis.target_ip)
+            if matched_asset is not None:
+                attached_asset = {
+                    "id": matched_asset.id,
+                    "ip": str(matched_asset.ip),
+                    "primary_hostname": matched_asset.primary_hostname,
+                }
+                status = "ready"
+                requires_resolution = False
+                allowed_actions = []
+                message = "Attached to existing host based on detected target IP."
+                asset_id = matched_asset.id
+            else:
+                asset_id = None
+                allowed_actions = ["confirm_new", "cancel"]
+                if has_candidate_assets:
+                    allowed_actions.insert(1, "map_existing")
+                message = (
+                    f"Detected target IP {analysis.target_ip}. Confirm the new host, map to an existing host, or cancel."
+                )
+        else:
+            asset_id = None
+            allowed_actions = ["cancel"]
+            if has_candidate_assets:
+                allowed_actions.insert(0, "map_existing")
+            message = "No in-scope target IP could be confirmed from this file. Map to an existing host or cancel."
+
+        tool_output = await crud.create_tool_output(
+            session,
+            project_id=project_id,
+            asset_id=asset_id,
+            artifact_id=artifact.id,
+            tool_name=analysis.tool_name,
+            original_filename=file.filename,
+            content_type=file.content_type,
+            target_ip=analysis.target_ip,
+            discovered_ips=analysis.discovered_ips,
+            preview_text=analysis.preview_text,
+            status=status,
+        )
+        items.append(
+            ToolOutputPreflightItem(
+                tool_output=ToolOutputOut.model_validate(tool_output),
+                attached_asset=attached_asset,
+                candidate_assets=candidate_payload,
+                requires_resolution=requires_resolution,
+                allowed_actions=allowed_actions,
+                message=message,
+            )
+        )
+
+    return {"items": [item.model_dump(mode="json") for item in items]}
+
+
+@router.post("/projects/{project_id}/tool-outputs/resolve")
+async def resolve_tool_outputs(
+    project_id: uuid.UUID,
+    payload: list[ToolOutputResolutionChoice],
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    try:
+        rows = await crud.resolve_tool_outputs(session, project_id=project_id, choices=payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"items": [ToolOutputOut.model_validate(row).model_dump(mode="json") for row in rows]}
+
+
+@router.post("/assets/{asset_id}/tool-outputs")
+async def upload_host_tool_outputs(
+    asset_id: uuid.UUID,
+    files: list[UploadFile] = File(...),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    asset = await session.get(Asset, asset_id)
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Host not found")
+
+    allowed_suffixes = {".txt", ".json", ".xml"}
+    created: list[ToolOutputOut] = []
+    for file in files:
+        suffix = Path(file.filename or "").suffix.lower()
+        if suffix not in allowed_suffixes:
+            raise HTTPException(status_code=400, detail="Only txt, json, and xml files are supported")
+
+        upload_dir = settings.data_dir / "uploads" / "tool-outputs" / str(uuid.uuid4())
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        dest = upload_dir / Path(file.filename).name
+        with dest.open("wb") as f_out:
+            shutil.copyfileobj(file.file, f_out)
+
+        artifact = await store_file_as_gzip_artifact(
+            session,
+            project_id=asset.project_id,
+            data_dir=settings.data_dir,
+            source_file=dest,
+            original_name=file.filename,
+        )
+        analysis = analyze_tool_output(file.filename, dest)
+        row = await crud.create_tool_output(
+            session,
+            project_id=asset.project_id,
+            asset_id=asset.id,
+            artifact_id=artifact.id,
+            tool_name=analysis.tool_name,
+            original_filename=file.filename,
+            content_type=file.content_type,
+            target_ip=analysis.target_ip,
+            discovered_ips=analysis.discovered_ips,
+            preview_text=analysis.preview_text,
+            status="ready",
+        )
+        created.append(ToolOutputOut.model_validate(row))
+
+    return {"items": [row.model_dump(mode="json") for row in created]}
 
 
 @router.post("/projects/{project_id}/notes", response_model=NoteOut)

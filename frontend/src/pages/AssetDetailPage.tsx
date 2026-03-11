@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiFetch } from "../api";
 import { useParams } from "react-router-dom";
+import { getToken } from "../token";
 
 const SEVERITY_ORDER: Record<string, number> = {
   critical: 5,
@@ -139,6 +140,22 @@ export function AssetDetailPage() {
     }
   });
 
+  const uploadToolOutputs = useMutation({
+    mutationFn: async (files: FileList) => {
+      const token = getToken();
+      const fd = new FormData();
+      Array.from(files).forEach((file) => fd.append("files", file));
+      const res = await fetch(`/api/assets/${assetId}/tool-outputs`, {
+        method: "POST",
+        headers: { "X-API-Token": token || "" },
+        body: fd
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["asset-detail", assetId] })
+  });
+
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p>Failed to load host detail: {(error as Error).message}</p>;
   if (!data) return <p>No host data.</p>;
@@ -247,7 +264,7 @@ export function AssetDetailPage() {
       </div>
 
       {(["critical", "high", "medium", "low", "info"] as const).map((sev) => (
-        <details key={sev} className="severityGroup" open>
+        <details key={sev} className="severityGroup">
           <summary>
             {SEVERITY_LABEL[sev]} ({grouped[sev].length})
           </summary>
@@ -291,6 +308,34 @@ export function AssetDetailPage() {
           </ul>
         </details>
       ))}
+
+      <div className="toolOutputSection">
+        <div className="findingsHeader">
+          <h3>Tool Output</h3>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const input = e.currentTarget.elements.namedItem("files") as HTMLInputElement | null;
+            if (!input?.files?.length) return;
+            uploadToolOutputs.mutate(input.files);
+          }}
+        >
+          <input type="file" name="files" multiple accept=".txt,.json,.xml" />
+          <button type="submit" disabled={uploadToolOutputs.isPending}>Upload tool output</button>
+        </form>
+        {(data.tool_outputs || []).length === 0 ? <p>No tool output uploaded for this host.</p> : null}
+        {(data.tool_outputs || []).map((output: any) => (
+          <details key={output.id} className="toolOutputCard">
+            <summary>
+              <strong>{output.tool_name}</strong> - {output.original_filename}
+            </summary>
+            <p><strong>Target IP:</strong> {output.target_ip || data.asset.ip}</p>
+            <p><strong>Other discovered IPs:</strong> {(output.discovered_ips || []).join(", ") || "None"}</p>
+            <pre>{output.preview_text || "No preview available."}</pre>
+          </details>
+        ))}
+      </div>
 
       {showModal ? (
         <div className="modalBackdrop">

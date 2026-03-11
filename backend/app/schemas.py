@@ -204,3 +204,50 @@ class LootCredentialOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ToolOutputOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    asset_id: uuid.UUID | None
+    artifact_id: uuid.UUID | None
+    tool_name: str
+    original_filename: str
+    content_type: str | None
+    target_ip: str | None
+    discovered_ips: list[str]
+    preview_text: str | None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    @field_validator("target_ip", mode="before")
+    @classmethod
+    def _coerce_target_ip_to_str(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        return str(value)
+
+    class Config:
+        from_attributes = True
+
+
+class ToolOutputResolutionChoice(BaseModel):
+    tool_output_id: uuid.UUID
+    action: str
+    asset_id: uuid.UUID | None = None
+
+
+class ToolOutputCandidateAsset(BaseModel):
+    id: uuid.UUID
+    ip: str
+    primary_hostname: str | None = None
+
+
+class ToolOutputPreflightItem(BaseModel):
+    tool_output: ToolOutputOut
+    attached_asset: ToolOutputCandidateAsset | None = None
+    candidate_assets: list[ToolOutputCandidateAsset] = Field(default_factory=list)
+    requires_resolution: bool = False
+    allowed_actions: list[str] = Field(default_factory=list)
+    message: str | None = None
