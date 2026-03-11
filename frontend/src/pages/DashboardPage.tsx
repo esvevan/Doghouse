@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { apiFetch } from "../api";
 import { getToken } from "../token";
 import { IngestJob, PageMeta, ToolOutputPreflightItem } from "../types";
@@ -14,8 +14,10 @@ type ResolutionState = {
 
 export function DashboardPage({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
+  const toolUploadInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingItems, setPendingItems] = useState<ToolOutputPreflightItem[]>([]);
   const [resolutionState, setResolutionState] = useState<Record<string, ResolutionState>>({});
+  const [toolUploadMessage, setToolUploadMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
 
   const { data } = useQuery({
     queryKey: ["jobs", projectId],
@@ -50,6 +52,7 @@ export function DashboardPage({ projectId }: { projectId: string }) {
       return (await res.json()) as ToolOutputPreflightResponse;
     },
     onSuccess: (response) => {
+      toolUploadInputRef.current && (toolUploadInputRef.current.value = "");
       const unresolved = response.items.filter((item) => item.requires_resolution);
       setPendingItems(unresolved);
       const defaults: Record<string, ResolutionState> = {};
@@ -65,6 +68,14 @@ export function DashboardPage({ projectId }: { projectId: string }) {
         };
       });
       setResolutionState(defaults);
+      setToolUploadMessage(
+        unresolved.length === 0
+          ? { kind: "success", text: "Upload was successful" }
+          : { kind: "success", text: "Upload received. Resolve host mapping to finish the upload." }
+      );
+    },
+    onError: (error) => {
+      setToolUploadMessage({ kind: "error", text: (error as Error).message || "Upload failed" });
     }
   });
 
@@ -87,6 +98,10 @@ export function DashboardPage({ projectId }: { projectId: string }) {
       setPendingItems([]);
       setResolutionState({});
       qc.invalidateQueries({ queryKey: ["assets"] });
+      setToolUploadMessage({ kind: "success", text: "Upload was successful" });
+    },
+    onError: (error) => {
+      setToolUploadMessage({ kind: "error", text: (error as Error).message || "Upload failed" });
     }
   });
 
@@ -127,12 +142,13 @@ export function DashboardPage({ projectId }: { projectId: string }) {
               const form = e.currentTarget;
               const input = form.elements.namedItem("files") as HTMLInputElement | null;
               if (!input?.files?.length) return;
+              setToolUploadMessage(null);
               const fd = new FormData();
               Array.from(input.files).forEach((file) => fd.append("files", file));
               uploadToolOutputs.mutate(fd);
             }}
           >
-            <input type="file" name="files" multiple accept=".txt,.json,.xml" required />
+            <input ref={toolUploadInputRef} type="file" name="files" multiple accept=".txt,.json,.xml" required />
             <button type="submit" disabled={!projectId || uploadToolOutputs.isPending}>
               Upload tool output
             </button>
@@ -140,6 +156,11 @@ export function DashboardPage({ projectId }: { projectId: string }) {
           <p className="muted">
             Supports generic text, JSON, and XML outputs from tools like Nikto, Nuclei, NetExec, and similar tooling.
           </p>
+          {toolUploadMessage ? (
+            <p className={toolUploadMessage.kind === "success" ? "statusSuccess" : "statusError"}>
+              {toolUploadMessage.text}
+            </p>
+          ) : null}
         </div>
       </div>
 

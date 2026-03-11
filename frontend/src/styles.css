@@ -289,6 +289,16 @@ th, td {
   color: #5d6b6f;
 }
 
+.statusSuccess {
+  color: #1b5e20;
+  font-weight: 600;
+}
+
+.statusError {
+  color: #b71c1c;
+  font-weight: 600;
+}
+
 input, textarea, select, button {
   margin: 4px;
   padding: 6px 8px;

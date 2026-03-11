@@ -756,6 +756,16 @@ async def list_tool_outputs_for_asset(session: AsyncSession, asset_id: uuid.UUID
     return list(rows.scalars().all())
 
 
+async def delete_tool_output(session: AsyncSession, tool_output_id: uuid.UUID) -> tuple[bool, uuid.UUID | None]:
+    row = await session.get(ToolOutput, tool_output_id)
+    if row is None:
+        return False, None
+    artifact_id = row.artifact_id
+    await session.delete(row)
+    await session.commit()
+    return True, artifact_id
+
+
 async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict[str, Any] | None:
     asset = await session.get(Asset, asset_id)
     if not asset:

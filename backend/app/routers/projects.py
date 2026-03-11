@@ -28,6 +28,7 @@ from app.schemas import (
     ToolOutputResolutionChoice,
 )
 from app.services.artifacts import store_file_as_gzip_artifact
+from app.services.artifacts import delete_artifact_if_unreferenced
 from app.services.tool_outputs import analyze_tool_output
 
 router = APIRouter(prefix="/api")
@@ -366,6 +367,18 @@ async def upload_host_tool_outputs(
         created.append(ToolOutputOut.model_validate(row))
 
     return {"items": [row.model_dump(mode="json") for row in created]}
+
+
+@router.delete("/tool-outputs/{tool_output_id}", status_code=204)
+async def delete_tool_output(
+    tool_output_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    deleted, artifact_id = await crud.delete_tool_output(session, tool_output_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Tool output not found")
+    if artifact_id:
+        await delete_artifact_if_unreferenced(session, artifact_id=artifact_id, data_dir=settings.data_dir)
 
 
 @router.post("/projects/{project_id}/notes", response_model=NoteOut)

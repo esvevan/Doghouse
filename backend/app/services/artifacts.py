@@ -6,10 +6,10 @@ import mimetypes
 import shutil
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Artifact
+from app.models import Artifact, IngestJob, ToolOutput
 
 
 def _artifact_relpath(sha256_hex: str) -> str:
@@ -66,3 +66,28 @@ async def store_file_as_gzip_artifact(
     await session.commit()
     await session.refresh(artifact)
     return artifact
+
+
+async def delete_artifact_if_unreferenced(
+    session: AsyncSession,
+    *,
+    artifact_id,
+    data_dir: Path,
+) -> None:
+    artifact = await session.get(Artifact, artifact_id)
+    if artifact is None:
+        return
+
+    tool_output_refs = await session.scalar(
+        select(func.count()).select_from(ToolOutput).where(ToolOutput.artifact_id == artifact_id)
+    )
+    ingest_refs = await session.scalar(
+        select(func.count()).select_from(IngestJob).where(IngestJob.artifact_id == artifact_id)
+    )
+    if int(tool_output_refs or 0) > 0 or int(ingest_refs or 0) > 0:
+        return
+
+    file_path = data_dir / artifact.relative_path
+    file_path.unlink(missing_ok=True)
+    await session.delete(artifact)
+    await session.commit()

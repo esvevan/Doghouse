@@ -75,6 +75,7 @@ export function AssetDetailPage() {
   const { assetId = "" } = useParams();
   const [showModal, setShowModal] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [toolOutputMessage, setToolOutputMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
 
   const { data, error, isLoading } = useQuery({
     queryKey: ["asset-detail", assetId],
@@ -153,7 +154,27 @@ export function AssetDetailPage() {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["asset-detail", assetId] })
+    onSuccess: () => {
+      setToolOutputMessage({ kind: "success", text: "Upload was successful" });
+      qc.invalidateQueries({ queryKey: ["asset-detail", assetId] });
+    },
+    onError: (error) => {
+      setToolOutputMessage({ kind: "error", text: (error as Error).message || "Upload failed" });
+    }
+  });
+
+  const deleteToolOutput = useMutation({
+    mutationFn: async (toolOutputId: string) =>
+      apiFetch<void>(`/api/tool-outputs/${toolOutputId}`, {
+        method: "DELETE"
+      }),
+    onSuccess: () => {
+      setToolOutputMessage({ kind: "success", text: "Tool output deleted" });
+      qc.invalidateQueries({ queryKey: ["asset-detail", assetId] });
+    },
+    onError: (error) => {
+      setToolOutputMessage({ kind: "error", text: (error as Error).message || "Delete failed" });
+    }
   });
 
   if (isLoading) return <p>Loading...</p>;
@@ -318,12 +339,19 @@ export function AssetDetailPage() {
             e.preventDefault();
             const input = e.currentTarget.elements.namedItem("files") as HTMLInputElement | null;
             if (!input?.files?.length) return;
+            setToolOutputMessage(null);
             uploadToolOutputs.mutate(input.files);
+            input.value = "";
           }}
         >
           <input type="file" name="files" multiple accept=".txt,.json,.xml" />
           <button type="submit" disabled={uploadToolOutputs.isPending}>Upload tool output</button>
         </form>
+        {toolOutputMessage ? (
+          <p className={toolOutputMessage.kind === "success" ? "statusSuccess" : "statusError"}>
+            {toolOutputMessage.text}
+          </p>
+        ) : null}
         {(data.tool_outputs || []).length === 0 ? <p>No tool output uploaded for this host.</p> : null}
         {(data.tool_outputs || []).map((output: any) => (
           <details key={output.id} className="toolOutputCard">
@@ -333,6 +361,9 @@ export function AssetDetailPage() {
             <p><strong>Target IP:</strong> {output.target_ip || data.asset.ip}</p>
             <p><strong>Other discovered IPs:</strong> {(output.discovered_ips || []).join(", ") || "None"}</p>
             <pre>{output.preview_text || "No preview available."}</pre>
+            <button type="button" onClick={() => deleteToolOutput.mutate(output.id)} disabled={deleteToolOutput.isPending}>
+              Delete tool output
+            </button>
           </details>
         ))}
       </div>
