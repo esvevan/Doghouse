@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Layout } from "./components/Layout";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { DomainPage } from "./pages/DomainPage";
 import { AssetsPage } from "./pages/AssetsPage";
 import { ServicesPage } from "./pages/ServicesPage";
 import { AssetDetailPage } from "./pages/AssetDetailPage";
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<ProjectsPage onSelect={setProjectId} />} />
           <Route path="dashboard" element={projectId ? <DashboardPage projectId={projectId} /> : <Navigate to="/" />} />
+          <Route path="domain" element={projectId ? <DomainPage projectId={projectId} /> : <Navigate to="/" />} />
           <Route path="assets" element={projectId ? <AssetsPage projectId={projectId} /> : <Navigate to="/" />} />
           <Route path="services" element={projectId ? <ServicesPage projectId={projectId} /> : <Navigate to="/" />} />
           <Route path="assets/:assetId" element={<AssetDetailPage />} />

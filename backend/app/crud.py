@@ -11,7 +11,20 @@ from sqlalchemy import asc, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import IngestStatus, InstanceStatus, Severity
-from app.models import Asset, Finding, IngestJob, Instance, LootCredential, Note, Project, Service, ToolOutput
+from app.models import (
+    Asset,
+    Domain,
+    DomainFinding,
+    DomainUserList,
+    Finding,
+    IngestJob,
+    Instance,
+    LootCredential,
+    Note,
+    Project,
+    Service,
+    ToolOutput,
+)
 from app.schemas import InstancePatch, ToolOutputResolutionChoice
 
 
@@ -35,6 +48,102 @@ async def create_project(session: AsyncSession, name: str, description: str | No
     await session.commit()
     await session.refresh(project)
     return project
+
+
+async def create_domain(session: AsyncSession, project_id: uuid.UUID, name: str) -> Domain:
+    row = Domain(project_id=project_id, name=name)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return row
+
+
+async def list_domains(session: AsyncSession, project_id: uuid.UUID) -> list[Domain]:
+    rows = await session.execute(
+        select(Domain).where(Domain.project_id == project_id).order_by(Domain.name.asc())
+    )
+    return list(rows.scalars().all())
+
+
+async def patch_domain(session: AsyncSession, domain_id: uuid.UUID, *, note: str | None = None) -> Domain | None:
+    row = await session.get(Domain, domain_id)
+    if row is None:
+        return None
+    if note is not None:
+        row.note = note
+    row.updated_at = utcnow()
+    await session.commit()
+    await session.refresh(row)
+    return row
+
+
+async def create_domain_finding(
+    session: AsyncSession,
+    *,
+    domain_id: uuid.UUID,
+    title: str,
+    severity: str,
+    description: str | None,
+    finding_detail: str | None,
+) -> DomainFinding:
+    row = DomainFinding(
+        domain_id=domain_id,
+        title=title,
+        severity=Severity(severity),
+        description=description,
+        finding_detail=finding_detail,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return row
+
+
+async def list_domain_findings(session: AsyncSession, domain_id: uuid.UUID) -> list[DomainFinding]:
+    rows = await session.execute(
+        select(DomainFinding)
+        .where(DomainFinding.domain_id == domain_id)
+        .order_by(DomainFinding.severity.desc(), DomainFinding.title.asc())
+    )
+    return list(rows.scalars().all())
+
+
+async def create_domain_user_list(
+    session: AsyncSession,
+    *,
+    domain_id: uuid.UUID,
+    artifact_id: uuid.UUID | None,
+    original_filename: str,
+    preview_text: str,
+) -> DomainUserList:
+    row = DomainUserList(
+        domain_id=domain_id,
+        artifact_id=artifact_id,
+        original_filename=original_filename,
+        preview_text=preview_text[:65536],
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return row
+
+
+async def list_domain_user_lists(session: AsyncSession, domain_id: uuid.UUID) -> list[DomainUserList]:
+    rows = await session.execute(
+        select(DomainUserList)
+        .where(DomainUserList.domain_id == domain_id)
+        .order_by(DomainUserList.created_at.desc())
+    )
+    return list(rows.scalars().all())
+
+
+async def get_domain_detail(session: AsyncSession, domain_id: uuid.UUID) -> dict[str, Any] | None:
+    domain = await session.get(Domain, domain_id)
+    if domain is None:
+        return None
+    findings = await list_domain_findings(session, domain_id)
+    user_lists = await list_domain_user_lists(session, domain_id)
+    return {"domain": domain, "findings": findings, "user_lists": user_lists}
 
 
 async def list_projects(session: AsyncSession) -> list[Project]:

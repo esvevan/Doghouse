@@ -93,6 +93,14 @@ th, td {
   margin-bottom: 20px;
 }
 
+.domainPickerRow {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
 .pieWrap {
   display: grid;
   gap: 8px;

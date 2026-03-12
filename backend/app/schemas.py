@@ -251,3 +251,56 @@ class ToolOutputPreflightItem(BaseModel):
     requires_resolution: bool = False
     allowed_actions: list[str] = Field(default_factory=list)
     message: str | None = None
+
+
+class DomainCreate(BaseModel):
+    name: str
+
+
+class DomainPatch(BaseModel):
+    note: str | None = None
+
+
+class DomainOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    name: str
+    note: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DomainFindingCreate(BaseModel):
+    title: str
+    severity: Severity
+    description: str | None = None
+    finding_detail: str | None = None
+
+
+class DomainFindingOut(BaseModel):
+    id: uuid.UUID
+    domain_id: uuid.UUID
+    severity: Severity
+    title: str
+    description: str | None
+    finding_detail: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DomainUserListOut(BaseModel):
+    id: uuid.UUID
+    domain_id: uuid.UUID
+    artifact_id: uuid.UUID | None
+    original_filename: str
+    preview_text: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

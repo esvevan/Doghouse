@@ -124,3 +124,32 @@ export type ToolOutputPreflightItem = {
   allowed_actions: string[];
   message: string | null;
 };
+
+export type Domain = {
+  id: string;
+  project_id: string;
+  name: string;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DomainFinding = {
+  id: string;
+  domain_id: string;
+  severity: "info" | "low" | "medium" | "high" | "critical";
+  title: string;
+  description: string | null;
+  finding_detail: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DomainUserList = {
+  id: string;
+  domain_id: string;
+  artifact_id: string | null;
+  original_filename: string;
+  preview_text: string | null;
+  created_at: string;
+};

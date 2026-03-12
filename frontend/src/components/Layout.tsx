@@ -8,6 +8,7 @@ export function Layout() {
         <nav className="sideNav">
           <Link to="/">Projects</Link>
           <Link to="/dashboard">Dashboard</Link>
+          <Link to="/domain">Domain</Link>
           <Link to="/assets">Hosts</Link>
           <Link to="/services">Services</Link>
           <Link to="/findings">Findings</Link>
