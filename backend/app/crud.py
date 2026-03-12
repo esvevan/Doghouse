@@ -814,6 +814,8 @@ async def get_asset_detail(session: AsyncSession, asset_id: uuid.UUID) -> dict[s
 async def export_rows(
     session: AsyncSession, project_id: uuid.UUID, export_type: str
 ) -> tuple[list[dict[str, Any]], list[str]]:
+    if export_type == "findings_report":
+        return await export_findings_report(session, project_id)
     if export_type == "assets":
         rows = (await session.execute(select(Asset).where(Asset.project_id == project_id))).scalars().all()
         data = [
@@ -884,6 +886,104 @@ def to_csv_bytes(rows: list[dict[str, Any]], fields: list[str]) -> bytes:
         writer.writeheader()
         writer.writerows(rows)
     return out.getvalue().encode("utf-8")
+
+
+def _capitalize_risk(value: str) -> str:
+    mapping = {
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low",
+        "info": "Informational",
+        "informational": "Informational",
+    }
+    return mapping.get(value.lower(), value.title())
+
+
+def _build_synopsis(description: str | None) -> str:
+    if not description:
+        return ""
+    normalized = " ".join(description.split())
+    if "." in normalized:
+        first = normalized.split(".", 1)[0].strip()
+        return f"{first}." if first else normalized
+    return normalized
+
+
+def _extract_see_also(references: Any) -> str:
+    if isinstance(references, list):
+        see_also = [ref.split(":", 1)[1] if isinstance(ref, str) and ref.startswith("see_also:") else ref for ref in references]
+        cleaned = [str(ref).strip() for ref in see_also if str(ref).strip()]
+        return "; ".join(cleaned)
+    if isinstance(references, dict):
+        value = references.get("see_also")
+        if isinstance(value, list):
+            return "; ".join(str(v).strip() for v in value if str(v).strip())
+        if value:
+            return str(value).strip()
+    return ""
+
+
+def _extract_service_from_instance(service: Service | None, evidence_snippet: str | None) -> tuple[str, str]:
+    if service is not None:
+        return service.proto, str(service.port)
+    if not evidence_snippet:
+        return "", ""
+    first_line = evidence_snippet.splitlines()[0].strip()
+    if not first_line.lower().startswith("service:"):
+        return "", ""
+    value = first_line.split(":", 1)[1].strip()
+    if "/" in value:
+        left, right = [part.strip() for part in value.split("/", 1)]
+        if left.isdigit():
+            return right.lower(), left
+        if right.isdigit():
+            return left.lower(), right
+    return "", ""
+
+
+async def export_findings_report(session: AsyncSession, project_id: uuid.UUID) -> tuple[list[dict[str, Any]], list[str]]:
+    result = await session.execute(
+        select(Finding, Instance, Asset, Service)
+        .join(Instance, Instance.finding_id == Finding.id)
+        .join(Asset, Asset.id == Instance.asset_id)
+        .outerjoin(Service, Service.id == Instance.service_id)
+        .where(Finding.project_id == project_id)
+        .order_by(Finding.severity.desc(), Asset.ip.asc(), Finding.title.asc())
+    )
+    rows: list[dict[str, Any]] = []
+    for finding, instance, asset, service in result.all():
+        plugin_id = finding.scanner_id if finding.scanner == "nessus" and finding.scanner_id else "custom"
+        protocol, port = _extract_service_from_instance(service, instance.evidence_snippet)
+        rows.append(
+            {
+                "Plugin ID": plugin_id,
+                "Risk": _capitalize_risk(finding.severity.value),
+                "Host": str(asset.ip),
+                "Protocol": protocol,
+                "Port": port,
+                "Name": finding.title,
+                "Synopsis": _build_synopsis(finding.description),
+                "Description": finding.description or "",
+                "Solution": finding.remediation or "",
+                "See Also": _extract_see_also(finding.references),
+                "Plugin Output": instance.evidence_snippet or "",
+            }
+        )
+    fields = [
+        "Plugin ID",
+        "Risk",
+        "Host",
+        "Protocol",
+        "Port",
+        "Name",
+        "Synopsis",
+        "Description",
+        "Solution",
+        "See Also",
+        "Plugin Output",
+    ]
+    return rows, fields
 
 
 async def update_job_status(

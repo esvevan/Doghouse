@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api")
 @router.get("/projects/{project_id}/export")
 async def export_project(
     project_id: uuid.UUID,
-    type: str = Query(..., pattern="^(findings|instances|assets|services)$"),
+    type: str = Query(..., pattern="^(findings|instances|assets|services|findings_report)$"),
     format: str = Query(..., pattern="^(json|csv)$"),
     session: AsyncSession = Depends(get_session),
 ) -> Response:

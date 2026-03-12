@@ -33,6 +33,10 @@ export function ExportPage({ projectId }: { projectId: string }) {
           <button onClick={() => download(t, "csv")}>CSV</button>
         </p>
       ))}
+      <p>
+        findings report:{" "}
+        <button onClick={() => download("findings_report", "csv")}>CSV</button>
+      </p>
     </section>
   );
 }
