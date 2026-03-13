@@ -55,6 +55,26 @@ async def get_domain_detail(domain_id: uuid.UUID, session: AsyncSession = Depend
     }
 
 
+@router.get("/projects/{project_id}/domain-findings/grouped")
+async def list_project_domain_findings(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    rows = await crud.list_project_domain_findings_grouped(session, project_id)
+    return {"items": rows}
+
+
+@router.get("/domain-findings/{domain_finding_id}")
+async def get_domain_finding(
+    domain_finding_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    payload = await crud.get_domain_finding_detail(session, domain_finding_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Domain finding not found")
+    return payload
+
+
 @router.patch("/domains/{domain_id}", response_model=DomainOut)
 async def patch_domain(
     domain_id: uuid.UUID,

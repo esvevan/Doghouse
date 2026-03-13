@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getToken } from "../token";
 import { apiFetch } from "../api";
 import { Domain, DomainFinding, DomainUserList } from "../types";
@@ -37,6 +37,12 @@ export function DomainPage({ projectId }: { projectId: string }) {
     queryFn: () => apiFetch<Domain[]>(`/api/projects/${projectId}/domains`),
     enabled: !!projectId
   });
+
+  useEffect(() => {
+    if (!selectedDomainId && domains.length > 0) {
+      setSelectedDomainId(domains[0].id);
+    }
+  }, [domains, selectedDomainId]);
 
   const detailQuery = useQuery({
     queryKey: ["domain-detail", selectedDomainId],

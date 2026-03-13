@@ -304,3 +304,10 @@ class DomainUserListOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ManualHostCreate(BaseModel):
+    ip: str
+    primary_hostname: str | None = None
+    os_name: str | None = None
+    services: str | None = None

@@ -34,6 +34,7 @@ function VulnBar({ counts }: { counts: { critical: number; high: number; medium:
 
 export function AssetsPage({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
   const [widths, setWidths] = useState<Record<string, number>>({
     tested: 120,
     ip: 220,
@@ -57,6 +58,19 @@ export function AssetsPage({ projectId }: { projectId: string }) {
         body: JSON.stringify(payload.body)
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["assets", projectId] })
+  });
+
+  const addHost = useMutation({
+    mutationFn: (payload: { ip: string; primary_hostname: string; os_name: string; services: string }) =>
+      apiFetch(`/api/projects/${projectId}/assets/manual`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }),
+    onSuccess: () => {
+      setShowModal(false);
+      qc.invalidateQueries({ queryKey: ["assets", projectId] });
+    }
   });
 
   const editTextField = (assetId: string, field: string, currentValue: string) => {
@@ -95,7 +109,10 @@ export function AssetsPage({ projectId }: { projectId: string }) {
 
   return (
     <section>
-      <h2>Hosts</h2>
+      <div className="findingsHeader">
+        <h2>Hosts</h2>
+        <button onClick={() => setShowModal(true)}>Add Host</button>
+      </div>
       {isLoading ? <p>Loading assets...</p> : null}
       {error ? <p>Failed to load assets: {(error as Error).message}</p> : null}
       <p>Discovered hosts: {data?.meta.total ?? 0}</p>
@@ -111,62 +128,21 @@ export function AssetsPage({ projectId }: { projectId: string }) {
         </colgroup>
         <thead>
           <tr>
-            <th>
-              <div className="resizableTh">
-                <span>Tested</span>
-                <span className="resizeHandle" onMouseDown={(e) => startResize("tested", e.clientX)} />
-              </div>
-            </th>
-            <th>
-              <div className="resizableTh">
-                <span>IP</span>
-                <span className="resizeHandle" onMouseDown={(e) => startResize("ip", e.clientX)} />
-              </div>
-            </th>
-            <th>
-              <div className="resizableTh">
-                <span>Hostname</span>
-                <span className="resizeHandle" onMouseDown={(e) => startResize("hostname", e.clientX)} />
-              </div>
-            </th>
-            <th>
-              <div className="resizableTh">
-                <span>Tags</span>
-                <span className="resizeHandle" onMouseDown={(e) => startResize("tags", e.clientX)} />
-              </div>
-            </th>
-            <th>
-              <div className="resizableTh">
-                <span>Operating System</span>
-                <span className="resizeHandle" onMouseDown={(e) => startResize("os", e.clientX)} />
-              </div>
-            </th>
-            <th>
-              <div className="resizableTh">
-                <span>Open Ports</span>
-                <span className="resizeHandle" onMouseDown={(e) => startResize("ports", e.clientX)} />
-              </div>
-            </th>
-            <th>
-              <div className="resizableTh">
-                <span>Vulnerabilities</span>
-                <span className="resizeHandle" onMouseDown={(e) => startResize("vulns", e.clientX)} />
-              </div>
-            </th>
+            <th><div className="resizableTh"><span>Tested</span><span className="resizeHandle" onMouseDown={(e) => startResize("tested", e.clientX)} /></div></th>
+            <th><div className="resizableTh"><span>IP</span><span className="resizeHandle" onMouseDown={(e) => startResize("ip", e.clientX)} /></div></th>
+            <th><div className="resizableTh"><span>Hostname</span><span className="resizeHandle" onMouseDown={(e) => startResize("hostname", e.clientX)} /></div></th>
+            <th><div className="resizableTh"><span>Tags</span><span className="resizeHandle" onMouseDown={(e) => startResize("tags", e.clientX)} /></div></th>
+            <th><div className="resizableTh"><span>Operating System</span><span className="resizeHandle" onMouseDown={(e) => startResize("os", e.clientX)} /></div></th>
+            <th><div className="resizableTh"><span>Open Ports</span><span className="resizeHandle" onMouseDown={(e) => startResize("ports", e.clientX)} /></div></th>
+            <th><div className="resizableTh"><span>Vulnerabilities</span><span className="resizeHandle" onMouseDown={(e) => startResize("vulns", e.clientX)} /></div></th>
           </tr>
         </thead>
         <tbody>
           {(data?.items || []).map((a) => (
             <tr key={a.id}>
               <td>
-                <input
-                  type="checkbox"
-                  checked={!!a.tested}
-                  onChange={(e) => patchAsset.mutate({ assetId: a.id, body: { tested: e.target.checked } })}
-                />
-                <button className="iconBtn" onClick={() => patchAsset.mutate({ assetId: a.id, body: { tested: !a.tested } })} title="Edit tested">
-                  &#9998;
-                </button>
+                <input type="checkbox" checked={!!a.tested} onChange={(e) => patchAsset.mutate({ assetId: a.id, body: { tested: e.target.checked } })} />
+                <button className="iconBtn" onClick={() => patchAsset.mutate({ assetId: a.id, body: { tested: !a.tested } })} title="Edit tested">&#9998;</button>
               </td>
               <td>
                 <Link to={`/assets/${a.id}`}>{a.ip}</Link>{" "}
@@ -174,13 +150,7 @@ export function AssetsPage({ projectId }: { projectId: string }) {
               </td>
               <td>
                 {a.primary_hostname || ""}{" "}
-                <button
-                  className="iconBtn"
-                  onClick={() => editTextField(a.id, "primary_hostname", a.primary_hostname || "")}
-                  title="Edit hostname"
-                >
-                  &#9998;
-                </button>
+                <button className="iconBtn" onClick={() => editTextField(a.id, "primary_hostname", a.primary_hostname || "")} title="Edit hostname">&#9998;</button>
               </td>
               <td>{(a.tags || []).join(", ")}</td>
               <td>
@@ -192,14 +162,46 @@ export function AssetsPage({ projectId }: { projectId: string }) {
                 <button className="iconBtn" onClick={() => editPorts(a.id, a.open_ports || [])} title="Edit open ports">&#9998;</button>
               </td>
               <td>
-                <VulnBar
-                  counts={a.vuln_counts || { critical: 0, high: 0, medium: 0, low: 0, info: 0 }}
-                />
+                <VulnBar counts={a.vuln_counts || { critical: 0, high: 0, medium: 0, low: 0, info: 0 }} />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {showModal ? (
+        <div className="modalBackdrop">
+          <div className="modalCard">
+            <h3>Add Host</h3>
+            <form
+              className="modalForm"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                addHost.mutate({
+                  ip: String(fd.get("ip") || ""),
+                  primary_hostname: String(fd.get("primary_hostname") || ""),
+                  os_name: String(fd.get("os_name") || ""),
+                  services: String(fd.get("services") || "")
+                });
+              }}
+            >
+              <label>IP</label>
+              <input name="ip" required />
+              <label>Hostname</label>
+              <input name="primary_hostname" />
+              <label>Operating System</label>
+              <input name="os_name" />
+              <label>Services</label>
+              <textarea name="services" placeholder={"One per line, e.g.\n443/tcp https\n445/tcp smb"} />
+              <div>
+                <button type="submit">Add Host</button>
+                <button type="button" onClick={() => setShowModal(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

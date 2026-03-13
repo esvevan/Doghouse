@@ -16,6 +16,7 @@ from app.schemas import (
     AssetPatch,
     AssetOut,
     IngestJobOut,
+    ManualHostCreate,
     NoteCreate,
     NoteOut,
     PageMeta,
@@ -185,6 +186,30 @@ async def patch_asset(
         raise HTTPException(status_code=409, detail="Asset update conflicts with existing host data") from exc
     if not row:
         raise HTTPException(status_code=404, detail="Asset not found")
+    return AssetOut.model_validate(row)
+
+
+@router.post("/projects/{project_id}/assets/manual", response_model=AssetOut)
+async def create_manual_host(
+    project_id: uuid.UUID,
+    payload: ManualHostCreate,
+    session: AsyncSession = Depends(get_session),
+) -> AssetOut:
+    try:
+        row = await crud.create_manual_asset_with_services(
+            session,
+            project_id=project_id,
+            ip=payload.ip,
+            primary_hostname=payload.primary_hostname,
+            os_name=payload.os_name,
+            services=payload.services,
+        )
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Host already exists or conflicts with existing data") from exc
     return AssetOut.model_validate(row)
 
 

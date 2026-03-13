@@ -13,7 +13,8 @@ const SEVERITY_LABEL: Record<string, string> = {
 
 type GroupedFinding = {
   id: string;
-  finding_key: string;
+  kind?: "host" | "domain";
+  finding_key?: string;
   title: string;
   severity: string;
   description: string | null;
@@ -21,14 +22,16 @@ type GroupedFinding = {
   scanner_id: string | null;
   tested: boolean;
   affected_hosts: number;
+  domain_id?: string;
+  domain_name?: string;
 };
 
 type GroupedResponse = {
-  meta: { total: number; limit: number; offset: number };
+  meta?: { total: number; limit: number; offset: number };
   items: GroupedFinding[];
 };
 
-function FindingDetailRow({
+function HostFindingDetailRow({
   findingId,
   tested,
   onToggleTested
@@ -139,11 +142,38 @@ function FindingDetailRow({
   );
 }
 
+function DomainFindingDetailRow({ findingId }: { findingId: string }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["domain-finding-detail", findingId],
+    queryFn: () => apiFetch<any>(`/api/domain-findings/${findingId}`),
+    enabled: !!findingId
+  });
+
+  if (isLoading) return <p>Loading finding detail...</p>;
+  if (error) return <p>Failed to load detail: {(error as Error).message}</p>;
+  if (!data) return <p>No detail.</p>;
+
+  return (
+    <div className="findingExpanded">
+      <div className="findingInstanceCard">
+        <p><strong>Domain:</strong> {data.domain_name}</p>
+        <p><strong>Description:</strong> {data.description || "No description provided."}</p>
+        <pre>{data.finding_detail || "No detail provided."}</pre>
+      </div>
+    </div>
+  );
+}
+
 export function FindingsPage({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
-  const { data, isLoading, error } = useQuery({
+  const hostFindingsQuery = useQuery({
     queryKey: ["findings-grouped", projectId],
     queryFn: () => apiFetch<GroupedResponse>(`/api/projects/${projectId}/findings/grouped?limit=500&offset=0`),
+    enabled: !!projectId
+  });
+  const domainFindingsQuery = useQuery({
+    queryKey: ["domain-findings-grouped", projectId],
+    queryFn: () => apiFetch<GroupedResponse>(`/api/projects/${projectId}/domain-findings/grouped`),
     enabled: !!projectId
   });
   const toggleFindingTested = useMutation({
@@ -158,6 +188,7 @@ export function FindingsPage({ projectId }: { projectId: string }) {
     }
   });
 
+  const allItems = [...(hostFindingsQuery.data?.items || []), ...(domainFindingsQuery.data?.items || [])];
   const grouped: Record<string, GroupedFinding[]> = {
     critical: [],
     high: [],
@@ -165,9 +196,12 @@ export function FindingsPage({ projectId }: { projectId: string }) {
     low: [],
     info: []
   };
-  (data?.items || []).forEach((item) => {
+  allItems.forEach((item) => {
     if (grouped[item.severity]) grouped[item.severity].push(item);
   });
+
+  const isLoading = hostFindingsQuery.isLoading || domainFindingsQuery.isLoading;
+  const error = hostFindingsQuery.error || domainFindingsQuery.error;
 
   return (
     <section>
@@ -186,40 +220,47 @@ export function FindingsPage({ projectId }: { projectId: string }) {
           </summary>
           <div>
             {grouped[sev].map((finding) => (
-              <details key={finding.id} className="findingRow">
+              <details key={`${finding.kind || "host"}-${finding.id}`} className="findingRow">
                 <summary className="findingSummary">
                   <span className="findingSummaryTitle">
-                    <button
-                      className="iconBtn"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleFindingTested.mutate({
-                          findingId: finding.id,
-                          tested: !finding.tested
-                        });
-                      }}
-                      title={finding.tested ? "Mark untested" : "Mark tested"}
-                    >
-                      ⚑
-                    </button>
+                    {finding.kind === "domain" ? null : (
+                      <button
+                        className="iconBtn"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleFindingTested.mutate({
+                            findingId: finding.id,
+                            tested: !finding.tested
+                          });
+                        }}
+                        title={finding.tested ? "Mark untested" : "Mark tested"}
+                      >
+                        ⚑
+                      </button>
+                    )}
                     <span className={finding.tested ? "testedFinding" : ""}>
                       {finding.title}
+                      {finding.kind === "domain" && finding.domain_name ? ` (${finding.domain_name})` : ""}
                     </span>
                   </span>
-                  <span>{finding.affected_hosts}</span>
+                  <span>{finding.kind === "domain" ? "-" : finding.affected_hosts}</span>
                   <span>{finding.scanner}</span>
                 </summary>
-                <FindingDetailRow
-                  findingId={finding.id}
-                  tested={finding.tested}
-                  onToggleTested={() =>
-                    toggleFindingTested.mutate({
-                      findingId: finding.id,
-                      tested: !finding.tested
-                    })
-                  }
-                />
+                {finding.kind === "domain" ? (
+                  <DomainFindingDetailRow findingId={finding.id} />
+                ) : (
+                  <HostFindingDetailRow
+                    findingId={finding.id}
+                    tested={finding.tested}
+                    onToggleTested={() =>
+                      toggleFindingTested.mutate({
+                        findingId: finding.id,
+                        tested: !finding.tested
+                      })
+                    }
+                  />
+                )}
               </details>
             ))}
           </div>

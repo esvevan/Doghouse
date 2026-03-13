@@ -108,6 +108,60 @@ async def list_domain_findings(session: AsyncSession, domain_id: uuid.UUID) -> l
     return list(rows.scalars().all())
 
 
+async def list_project_domain_findings_grouped(
+    session: AsyncSession,
+    project_id: uuid.UUID,
+) -> list[dict[str, Any]]:
+    rows = await session.execute(
+        select(DomainFinding, Domain)
+        .join(Domain, Domain.id == DomainFinding.domain_id)
+        .where(Domain.project_id == project_id)
+        .order_by(DomainFinding.severity.desc(), DomainFinding.title.asc())
+    )
+    items: list[dict[str, Any]] = []
+    for finding, domain in rows.all():
+        items.append(
+            {
+                "id": str(finding.id),
+                "kind": "domain",
+                "title": finding.title,
+                "severity": finding.severity.value,
+                "description": finding.description,
+                "scanner": "domain",
+                "scanner_id": None,
+                "tested": False,
+                "affected_hosts": 0,
+                "domain_id": str(domain.id),
+                "domain_name": domain.name,
+            }
+        )
+    return items
+
+
+async def get_domain_finding_detail(session: AsyncSession, domain_finding_id: uuid.UUID) -> dict[str, Any] | None:
+    row = await session.execute(
+        select(DomainFinding, Domain)
+        .join(Domain, Domain.id == DomainFinding.domain_id)
+        .where(DomainFinding.id == domain_finding_id)
+    )
+    result = row.first()
+    if result is None:
+        return None
+    finding, domain = result
+    return {
+        "id": str(finding.id),
+        "kind": "domain",
+        "title": finding.title,
+        "severity": finding.severity.value,
+        "description": finding.description,
+        "finding_detail": finding.finding_detail,
+        "scanner": "domain",
+        "scanner_id": None,
+        "domain_id": str(domain.id),
+        "domain_name": domain.name,
+    }
+
+
 async def create_domain_user_list(
     session: AsyncSession,
     *,
@@ -126,6 +180,80 @@ async def create_domain_user_list(
     await session.commit()
     await session.refresh(row)
     return row
+
+
+def _parse_manual_services(services: str | None) -> list[dict[str, Any]]:
+    if not services:
+        return []
+    rows: list[dict[str, Any]] = []
+    for raw in services.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        parts = line.split()
+        token = parts[0]
+        name = " ".join(parts[1:]).strip() or None
+        proto = "tcp"
+        port: int | None = None
+        if "/" in token:
+            left, right = token.split("/", 1)
+            if left.isdigit():
+                port = int(left)
+                proto = right.lower()
+            elif right.isdigit():
+                port = int(right)
+                proto = left.lower()
+        elif token.isdigit():
+            port = int(token)
+        if port is None:
+            continue
+        rows.append({"proto": proto, "port": port, "name": name})
+    return rows
+
+
+async def create_manual_asset_with_services(
+    session: AsyncSession,
+    *,
+    project_id: uuid.UUID,
+    ip: str,
+    primary_hostname: str | None,
+    os_name: str | None,
+    services: str | None,
+) -> Asset:
+    now = utcnow()
+    asset = Asset(
+        project_id=project_id,
+        ip=normalize_ip(ip),
+        primary_hostname=primary_hostname or None,
+        hostnames=[primary_hostname] if primary_hostname else [],
+        tags=[],
+        os_name=os_name or None,
+        tested=False,
+        first_seen=now,
+        last_seen=now,
+    )
+    session.add(asset)
+    await session.flush()
+
+    for row in _parse_manual_services(services):
+        session.add(
+            Service(
+                project_id=project_id,
+                asset_id=asset.id,
+                proto=row["proto"],
+                port=row["port"],
+                name=row["name"],
+                product=None,
+                version=None,
+                banner=None,
+                first_seen=now,
+                last_seen=now,
+            )
+        )
+
+    await session.commit()
+    await session.refresh(asset)
+    return asset
 
 
 async def list_domain_user_lists(session: AsyncSession, domain_id: uuid.UUID) -> list[DomainUserList]:
