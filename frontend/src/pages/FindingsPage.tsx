@@ -241,10 +241,9 @@ export function FindingsPage({ projectId }: { projectId: string }) {
                     )}
                     <span className={finding.tested ? "testedFinding" : ""}>
                       {finding.title}
-                      {finding.kind === "domain" && finding.domain_name ? ` (${finding.domain_name})` : ""}
                     </span>
                   </span>
-                  <span>{finding.kind === "domain" ? "-" : finding.affected_hosts}</span>
+                  <span>{finding.kind === "domain" ? (finding.domain_name || "Domain") : finding.affected_hosts}</span>
                   <span>{finding.scanner}</span>
                 </summary>
                 {finding.kind === "domain" ? (
