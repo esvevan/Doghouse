@@ -50,6 +50,21 @@ export function AssetsPage({ projectId }: { projectId: string }) {
     enabled: !!projectId
   });
 
+  const sortedItems = [...(data?.items || [])].sort((a, b) => {
+    const aCount =
+      (a.vuln_counts?.critical || 0) +
+      (a.vuln_counts?.high || 0) +
+      (a.vuln_counts?.medium || 0) +
+      (a.vuln_counts?.low || 0);
+    const bCount =
+      (b.vuln_counts?.critical || 0) +
+      (b.vuln_counts?.high || 0) +
+      (b.vuln_counts?.medium || 0) +
+      (b.vuln_counts?.low || 0);
+    if (bCount !== aCount) return bCount - aCount;
+    return a.ip.localeCompare(b.ip);
+  });
+
   const patchAsset = useMutation({
     mutationFn: (payload: { assetId: string; body: Record<string, unknown> }) =>
       apiFetch(`/api/assets/${payload.assetId}`, {
@@ -138,7 +153,7 @@ export function AssetsPage({ projectId }: { projectId: string }) {
           </tr>
         </thead>
         <tbody>
-          {(data?.items || []).map((a) => (
+          {sortedItems.map((a) => (
             <tr key={a.id}>
               <td>
                 <input type="checkbox" checked={!!a.tested} onChange={(e) => patchAsset.mutate({ assetId: a.id, body: { tested: e.target.checked } })} />
