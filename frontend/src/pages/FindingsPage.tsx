@@ -40,23 +40,10 @@ function HostFindingDetailRow({
   tested: boolean;
   onToggleTested: () => void;
 }) {
-  const qc = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ["finding-detail", findingId],
     queryFn: () => apiFetch<any>(`/api/findings/${findingId}`),
     enabled: !!findingId
-  });
-  const saveFindingTested = useMutation({
-    mutationFn: async (value: boolean) =>
-      apiFetch(`/api/findings/${findingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tested: value })
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["findings-grouped"] });
-      qc.invalidateQueries({ queryKey: ["finding-detail", findingId] });
-    }
   });
 
   if (isLoading) return <p>Loading finding detail...</p>;
@@ -95,10 +82,7 @@ function HostFindingDetailRow({
       <div className="findingExpandedHeader">
         <button
           className="iconBtn"
-          onClick={() => {
-            onToggleTested();
-            saveFindingTested.mutate(!tested);
-          }}
+          onClick={onToggleTested}
           title={tested ? "Mark untested" : "Mark tested"}
         >
           ⚑
@@ -183,8 +167,41 @@ export function FindingsPage({ projectId }: { projectId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tested: payload.tested })
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["findings-grouped", projectId] });
+    onMutate: async (payload) => {
+      await qc.cancelQueries({ queryKey: ["findings-grouped", projectId] });
+      await qc.cancelQueries({ queryKey: ["finding-detail", payload.findingId] });
+
+      const previousGrouped = qc.getQueryData<GroupedResponse>(["findings-grouped", projectId]);
+      const previousDetail = qc.getQueryData<any>(["finding-detail", payload.findingId]);
+
+      if (previousGrouped) {
+        qc.setQueryData<GroupedResponse>(["findings-grouped", projectId], {
+          ...previousGrouped,
+          items: previousGrouped.items.map((item) =>
+            item.id === payload.findingId ? { ...item, tested: payload.tested } : item
+          )
+        });
+      }
+
+      if (previousDetail) {
+        qc.setQueryData(["finding-detail", payload.findingId], {
+          ...previousDetail,
+          tested: payload.tested
+        });
+      }
+
+      return { previousGrouped, previousDetail };
+    },
+    onError: (_error, payload, context) => {
+      if (context?.previousGrouped) {
+        qc.setQueryData(["findings-grouped", projectId], context.previousGrouped);
+      }
+      if (context?.previousDetail) {
+        qc.setQueryData(["finding-detail", payload.findingId], context.previousDetail);
+      }
+    },
+    onSettled: (_data, _error, payload) => {
+      qc.invalidateQueries({ queryKey: ["finding-detail", payload.findingId] });
     }
   });
 
